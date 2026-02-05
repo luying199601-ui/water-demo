@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海-河-湖-库核事故应急评价模拟系统 | WECAS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-velocity/dist/leaflet-velocity.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --secondary: #0072ff;
+            --bg-dark: #0a0e14;
+            --bg-panel: #131924;
+            --bg-card: #1c2433;
+            --glass-bg: rgba(12, 24, 40, 0.9);
+            --glass-border: 1px solid rgba(0, 242, 255, 0.3);
+            --text-white: #ffffff;
+            --text-gray: #8b9bb4;
+        }
+
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg-dark); overflow: hidden; color: var(--text-white); }
+        
+        /* === 通用 UI === */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        button { cursor: pointer; transition: 0.2s; font-family: inherit; }
+        input, select { background: rgba(0,0,0,0.3); border: 1px solid #334155; color: #fff; padding: 8px 12px; border-radius: 4px; outline: none; width: 100%; box-sizing: border-box; }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 5px rgba(0,242,255,0.2); }
+
+        /* === 登录页 === */
+        #login-page { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a2a3a 0%, #000 100%); display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s; }
+        .login-box { width: 400px; padding: 40px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: var(--glass-border); border-radius: 12px; text-align: center; }
+
+        /* === 主界面容器 === */
+        #main-interface { display: none; width: 100%; height: 100%; position: relative; }
+        .content-wrapper { position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 1; display: none; background: #000; }
+        .content-wrapper.active { display: block; animation: fadeInView 0.3s; }
+        @keyframes fadeInView { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        /* =========================================
+           1. 首页 (地图模式)
+           ========================================= */
+        #map-container { width: 100%; height: 100%; position: relative; }
+        #map { width: 100%; height: 100%; background: #000; z-index: 1; cursor: crosshair; }
+        .ui-layer { z-index: 2000; position: absolute; pointer-events: auto; }
+
+        /* 左上角悬浮品牌 */
+        .floating-brand {
+            top: 20px; left: 20px; padding: 10px 20px;
+            background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px); border-radius: 30px;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); pointer-events: none;
+        }
+        .brand-logo { color: var(--primary); font-size: 20px; animation: spinSlow 10s linear infinite; }
+        .brand-text { font-weight: bold; font-size: 16px; letter-spacing: 1px; color: #fff; }
+        @keyframes spinSlow { 100% { transform: rotate(360deg); } }
+
+        /* 右上角工具栏 */
+        .map-tools-right {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 2001;
+        }
+        .tool-btn {
+            width: 40px; height: 40px; background: var(--glass-bg);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 50%;
+            color: #fff; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .tool-btn:hover { color: var(--primary); border-color: var(--primary); transform: scale(1.1); }
+
+        /* 智能搜索框 */
+        .home-search-bar {
+            top: 30px; left: 50%; transform: translateX(-50%);
+            width: 500px; display: flex; flex-direction: column; align-items: center;
+        }
+        .search-container { width: 100%; position: relative; }
+        .search-input-lg {
+            width: 100%; padding: 12px 50px 12px 25px;
+            background: var(--glass-bg); border: var(--glass-border);
+            backdrop-filter: blur(8px); border-radius: 30px;
+            color: white; font-size: 15px; outline: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6); transition: all 0.3s;
+        }
+        .search-input-lg:focus { box-shadow: 0 0 20px rgba(0, 242, 255, 0.3); border-color: var(--primary); border-radius: 20px 20px 0 0; }
+        .search-icon-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary); font-size: 16px; }
+        
+        .search-suggestions {
+            position: absolute; top: 100%; left: 0; width: 100%;
+            background: rgba(12, 24, 40, 0.95); border: var(--glass-border); border-top: none;
+            border-radius: 0 0 20px 20px; display: none;
+            max-height: 300px; overflow-y: auto; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
+        .suggestion-item:hover { background: rgba(0, 242, 255, 0.1); }
+
+        /* 底部 Dock 菜单 */
+        .home-dock {
+            bottom: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 30px; padding: 12px 40px;
+            background: var(--glass-bg); border: var(--glass-border);
+            backdrop-filter: blur(10px); border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+        .dock-btn {
+            display: flex; flex-direction: column; align-items: center;
+            background: transparent; border: none;
+            color: rgba(255,255,255,0.7); cursor: pointer;
+            transition: all 0.2s; width: 60px; position: relative;
+        }
+        .dock-btn:hover { color: var(--primary); transform: translateY(-5px); }
+        .dock-icon { font-size: 24px; margin-bottom: 6px; }
+        .dock-label { font-size: 12px; font-weight: 500; }
+
+        /* 底图面板 */
+        .basemap-panel {
+            position: absolute; top: 0; right: 60px; width: 220px;
+            background: rgba(20, 25, 35, 0.95); border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px); border-radius: 8px; padding: 10px 0;
+            display: none; z-index: 2001; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .basemap-panel.show { display: block; animation: slideInRight 0.3s; }
+        .layer-item { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .layer-item:hover { background: rgba(255,255,255,0.05); }
+        .toggle-switch { width: 30px; height: 16px; background: #444; border-radius: 20px; position: relative; }
+        .toggle-switch::after { content:''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        .layer-item.active .toggle-switch { background: var(--primary); }
+        .layer-item.active .toggle-switch::after { transform: translateX(14px); }
+
+        /* Popup */
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: rgba(10, 20, 30, 0.95) !important; border: 1px solid var(--primary) !important; color: white !important; }
+        .create-task-btn-sm { background: var(--primary); color: #000; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; width: 100%; margin-top: 10px; }
+
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* =========================================
+           2. 子页面通用样式
+           ========================================= */
+        .subpage-layout { display: flex; height: 100%; flex-direction: column; background: var(--bg-dark); }
+        .subpage-header { height: 60px; background: var(--bg-panel); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
+        .subpage-title { font-size: 18px; font-weight: bold; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .back-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px 20px; border-radius: 30px; display: flex; align-items: center; gap: 8px; }
+        .back-btn:hover { background: var(--primary); color: #000; border-color: var(--primary); }
+        .subpage-body { flex: 1; display: flex; overflow: hidden; }
+        .admin-sidebar { width: 220px; background: #131924; border-right: 1px solid rgba(255,255,255,0.05); padding-top: 20px; }
+        .menu-title { padding: 10px 20px; color: #5c6b7f; font-size: 12px; font-weight: bold; }
+        .menu-item { padding: 12px 20px; display: flex; align-items: center; gap: 10px; color: var(--text-gray); cursor: pointer; transition: 0.2s; font-size: 14px; }
+        .menu-item:hover, .menu-item.active { background: rgba(0,242,255,0.05); color: var(--text-white); border-right: 3px solid var(--primary); }
+        .admin-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .panel-box { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 25px; }
+
+        /* 任务列表 */
+        .task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .task-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; transition: 0.3s; position: relative; }
+        .task-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+        .card-tag { padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fff; }
+        .tag-blue { background: #0072ff; } .tag-cyan { background: #00c087; }
+        .action-row { display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .icon-btn { color: #666; cursor: pointer; transition: 0.2s; } .icon-btn:hover { color: var(--primary); }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .data-table th, .data-table td { text-align: left; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #ddd; font-size: 14px; }
+
+        /* =========================================
+           3. 创建任务弹窗
+           ========================================= */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 5000; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-window { width: 900px; height: 750px; background: #0f141e; border: 1px solid var(--primary); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 50px rgba(0,242,255,0.15); }
+        .modal-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: rgba(0,242,255,0.05); }
+        .step-bar { display: flex; padding: 20px 40px; background: #0b0f16; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .step-item { display: flex; align-items: center; color: #444; margin-right: 30px; }
+        .step-item.active { color: var(--primary); font-weight: bold; }
+        .step-circle { width: 24px; height: 24px; border: 2px solid #444; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-right: 8px; font-size: 12px; }
+        .step-item.active .step-circle { border-color: var(--primary); background: rgba(0,242,255,0.2); }
+        .form-section { display: none; padding: 30px; flex: 1; overflow-y: auto; }
+        .form-section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .chain-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 15px; }
+        .chain-card { border: 1px solid #333; padding: 20px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.02); display: flex; gap: 15px; align-items: flex-start; }
+        .chain-card.selected { border-color: var(--primary); background: rgba(0,242,255,0.1); }
+        .modal-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: flex-end; gap: 15px; background: #0b0f16; }
+        .btn-primary { background: var(--primary); color: #000; border: none; padding: 10px 30px; border-radius: 4px; font-weight: bold; }
+        .btn-secondary { background: #333; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-page">
+        <div class="login-box">
+            <h2 style="color:var(--primary); margin-bottom:30px; letter-spacing:2px;">WECAS 2.0</h2>
+            <input type="text" id="username" placeholder="用户名: admin" value="admin" style="margin-bottom:15px;">
+            <input type="password" id="password" placeholder="密码: 123456" value="123456" style="margin-bottom:20px;">
+            <button onclick="login()" style="width:100%; padding:12px; background:linear-gradient(90deg, #00c6ff, #0072ff); border:none; color:white; border-radius:4px; font-weight:bold;">进入系统</button>
+        </div>
+    </div>
+
+    <div id="main-interface">
+        
+        <div id="view-map" class="content-wrapper active">
+            <div id="map-container">
+                <div id="map"></div>
+                
+                <div class="ui-layer floating-brand">
+                    <i class="fas fa-atom fa-spin brand-logo"></i>
+                    <span class="brand-text">WECAS 2.0</span>
+                </div>
+
+                <div class="ui-layer home-search-bar">
+                    <div class="search-container">
+                        <input type="text" class="search-input-lg" id="search-input" 
+                               placeholder="🔍 搜索地点 (支持模糊联想)..." 
+                               oninput="handleSearchInput(this.value)">
+                        <button class="search-icon-btn"><i class="fas fa-search"></i></button>
+                        <div class="search-suggestions" id="search-suggestions"></div>
+                    </div>
+                </div>
+
+                <div class="map-tools-right">
+                    <button class="tool-btn" onclick="toggleBasemapPanel()" title="图层管理">
+                        <i class="fas fa-layer-group"></i>
+                    </button>
+                    <div class="basemap-panel" id="basemap-panel">
+                        <div style="padding:0 15px 10px; border-bottom:1px solid #333; font-weight:bold; font-size:14px; display:flex; justify-content:space-between;">
+                            <span>底图切换</span>
+                            <i class="fas fa-times" style="cursor:pointer;" onclick="toggleBasemapPanel()"></i>
+                        </div>
+                        <div class="layer-item" onclick="switchLayer('dark', this)">
+                            <span class="layer-name">CartoDB 暗色</span><div class="toggle-switch"></div>
+                        </div>
+                        <div class="layer-item active" onclick="switchLayer('satellite', this)">
+                            <span class="layer-name">ESRI 卫星影像</span><div class="toggle-switch"></div>
+                        </div>
+                    </div>
+                    <button class="tool-btn" onclick="alert('测距工具')" title="测距"><i class="fas fa-ruler"></i></button>
+                    <button class="tool-btn" onclick="openTaskModal(false)" title="创建任务"><i class="fas fa-plus" style="color:var(--primary)"></i></button>
+                </div>
+
+                <div class="ui-layer home-dock">
+                    <button class="dock-btn" onclick="openTaskModal(false)">
+                        <span class="dock-icon"><i class="fas fa-plus-circle"></i></span>
+                        <span class="dock-label">创建任务</span>
+                    </button>
+                    <button class="dock-btn" onclick="switchView('task')">
+                        <span class="dock-icon"><i class="fas fa-clipboard-list"></i></span>
+                        <span class="dock-label">任务列表</span>
+                    </button>
+                    <button class="dock-btn" onclick="switchView('data')">
+                        <span class="dock-icon"><i class="fas fa-server"></i></span>
+                        <span class="dock-label">数据中心</span>
+                    </button>
+                    <button class="dock-btn" onclick="switchView('ops')">
+                        <span class="dock-icon"><i class="fas fa-chart-line"></i></span>
+                        <span class="dock-label">运维监控</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="view-task" class="content-wrapper">
+            <div class="subpage-layout">
+                <div class="subpage-header">
+                    <div class="subpage-title"><i class="fas fa-clipboard-list"></i> 历史任务管理</div>
+                    <button class="back-btn" onclick="switchView('map')"><i class="fas fa-arrow-left"></i> 返回地图</button>
+                </div>
+                <div style="flex:1; padding:30px; overflow-y:auto;">
+                    <div style="display:flex; gap:15px; margin-bottom:20px; background:var(--bg-card); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                        <select style="width:160px;"><option>全部核设施</option><option>秦山</option><option>大亚湾</option></select>
+                        <select style="width:160px;"><option>任务状态</option><option>完成</option><option>计算中</option></select>
+                        <input type="text" placeholder="输入任务编号或名称..." style="flex:1;">
+                        <button class="btn-primary" style="padding:0 25px;"><i class="fas fa-search"></i> 搜索</button>
+                    </div>
+                    <div class="task-grid" id="task-grid-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-data" class="content-wrapper">
+            <div class="subpage-layout">
+                <div class="subpage-header">
+                    <div class="subpage-title"><i class="fas fa-database"></i> 数据管理中心</div>
+                    <button class="back-btn" onclick="switchView('map')"><i class="fas fa-arrow-left"></i> 返回地图</button>
+                </div>
+                <div class="subpage-body">
+                    <div class="admin-sidebar">
+                        <div class="menu-group">
+                            <div class="menu-title">数据目录</div>
+                            <div class="menu-item"><i class="fas fa-layer-group"></i> 基础数据管理</div>
+                            <div class="menu-item active"><i class="fas fa-map-marker-alt"></i> 核设施管理</div>
+                            <div class="menu-item"><i class="fas fa-life-ring"></i> 救援力量管理</div>
+                            <div class="menu-item"><i class="fas fa-water"></i> 周边水文数据</div>
+                            <div class="menu-item"><i class="fas fa-cog"></i> 系统参数配置</div>
+                        </div>
+                    </div>
+                    <div class="admin-content">
+                        <div class="panel-box">
+                            <h3 style="color:var(--primary); margin-top:0;">核设施与模式链配置</h3>
+                            <table class="data-table">
+                                <thead><tr><th>设施名称</th><th>类型</th><th>位置</th><th>默认模式链</th><th>操作</th></tr></thead>
+                                <tbody>
+                                    <tr>
+                                        <td>秦山核电站</td><td><span class="card-tag tag-blue">近岸</span></td><td>120.94, 30.43</td>
+                                        <td><span style="color:#00c087">近海精细, 近海快速</span></td>
+                                        <td><button style="color:var(--primary); border:none; background:none;">配置</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td>自定义点 A</td><td><span class="card-tag" style="background:#555;">任意点</span></td><td>122.50, 29.00</td>
+                                        <td>默认 (欧拉/拉格朗日)</td>
+                                        <td><button style="color:var(--primary); border:none; background:none;">配置</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-ops" class="content-wrapper">
+            <div class="subpage-layout">
+                <div class="subpage-header">
+                    <div class="subpage-title"><i class="fas fa-cogs"></i> 运维监控中心</div>
+                    <button class="back-btn" onclick="switchView('map')"><i class="fas fa-arrow-left"></i> 返回地图</button>
+                </div>
+                <div class="subpage-body">
+                    <div class="admin-sidebar">
+                        <div class="menu-group">
+                            <div class="menu-title">监控项</div>
+                            <div class="menu-item active"><i class="fas fa-file-alt"></i> 系统日志</div>
+                            <div class="menu-item"><i class="fas fa-bug"></i> 异常监控</div>
+                            <div class="menu-item"><i class="fas fa-users-cog"></i> 用户权限</div>
+                        </div>
+                    </div>
+                    <div class="admin-content">
+                        <div class="panel-box">
+                            <h3>系统运行日志</h3>
+                            <table class="data-table">
+                                <thead><tr><th>时间</th><th>级别</th><th>模块</th><th>内容</th></tr></thead>
+                                <tbody>
+                                    <tr><td>2026-02-05 10:23:11</td><td style="color:#00c087">INFO</td><td>TaskEngine</td><td>任务计算完成: Task-001</td></tr>
+                                    <tr><td>2026-02-05 09:12:05</td><td style="color:#ffcd3c">WARN</td><td>DataAPI</td><td>NOAA 数据源响应超时</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-overlay" id="task-modal">
+        <div class="modal-window">
+            <div class="modal-header">
+                <span style="font-size:18px; color:var(--primary); font-weight:bold;">创建新任务</span>
+                <button onclick="closeTaskModal()" style="background:none; border:none; color:#fff; font-size:20px;">&times;</button>
+            </div>
+            <div class="step-bar">
+                <div class="step-item active" id="step-nav-1"><div class="step-circle">1</div> 模式选择</div>
+                <div class="step-item" id="step-nav-2"><div class="step-circle">2</div> 参数设置</div>
+                <div class="step-item" id="step-nav-3"><div class="step-circle">3</div> 源项配置</div>
+            </div>
+            <div class="form-section active" id="step-1">
+                <label style="display:block; margin-bottom:10px; color:#aaa;">模拟目标</label>
+                <select id="facility-select" onchange="updateModeOptions()" style="margin-bottom:20px;">
+                    <option value="arbitrary">自定义任意点 (Default)</option>
+                    <option value="qinshan">秦山核电站 (已配置近海模式)</option>
+                </select>
+                <label style="display:block; margin-bottom:10px; color:#aaa;">选择计算模式链</label>
+                <div class="chain-grid" id="chain-container"></div>
+            </div>
+            <div class="form-section" id="step-2">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                    <div><label>任务名称</label><input type="text" value="新任务_2026"></div>
+                    <div><label>时长(h)</label><input type="number" value="24"></div>
+                </div>
+            </div>
+            <div class="form-section" id="step-3">
+                <div style="text-align:center; color:#666; margin-top:50px;">点击下方按钮配置源项</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="changeStep(-1)" id="btn-prev" style="display:none">上一步</button>
+                <button class="btn-primary" onclick="changeStep(1)" id="btn-next">下一步</button>
+                <button class="btn-primary" onclick="submitTask()" id="btn-submit" style="display:none">⚡ 开始计算</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-velocity/dist/leaflet-velocity.js"></script>
+    <script>
+        // === 全局状态 ===
+        let map;
+        let currentMarker = null;
+        let baseLayers = {};
+        let currentLayer = null;
+        let velocityLayer = null;
+        let searchTimeout = null;
+
+        // === 1. 初始化 ===
+        function login() {
+            document.getElementById('login-page').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('main-interface').style.display = 'block';
+                initMap();
+                renderTaskList();
+            }, 500);
+        }
+        function logout() { location.reload(); }
+
+        // 视图切换 (核心逻辑：从 Dock 切换全屏页面)
+        function switchView(viewName) {
+            document.querySelectorAll('.content-wrapper').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewName).classList.add('active');
+            if(viewName === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
+        }
+
+        // === 2. 地图 & 搜索逻辑 (核心修复) ===
+        function initMap() {
+            if(map) return;
+            baseLayers = {
+                'dark': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:18, opacity:0.9 }),
+                'satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:18 })
+            };
+            // 默认卫星
+            map = L.map('map', { center: [30.4, 122.5], zoom: 7, zoomControl: false, layers: [baseLayers['satellite']] });
+            currentLayer = baseLayers['satellite'];
+            
+            loadWindData();
+
+            map.on('click', (e) => selectLocation(e.latlng.lat, e.latlng.lng, "自定义选点"));
+        }
+
+        // 搜索联想处理 (解决不准确问题)
+        function handleSearchInput(query) {
+            const list = document.getElementById('search-suggestions');
+            if(!query) { list.style.display = 'none'; return; }
+
+            // 防抖
+            if(searchTimeout) clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // 1. 本地精准匹配 (针对核设施)
+                const localDB = [
+                    { name: '秦山核电站', lat: 30.435, lng: 120.941, desc: '浙江省嘉兴市海盐县' },
+                    { name: '大亚湾核电站', lat: 22.59, lng: 114.54, desc: '广东省深圳市' },
+                    { name: '三门核电站', lat: 29.10, lng: 121.63, desc: '浙江省台州市' },
+                    { name: '福清核电站', lat: 25.44, lng: 119.45, desc: '福建省福州市' }
+                ];
+                let matches = localDB.filter(item => item.name.includes(query));
+
+                // 2. 如果本地没找到，模拟 API 模糊结果 (真实场景应 fetch Nominatim)
+                if(matches.length === 0 && query.length > 0) {
+                     matches.push({ name: query + " (模拟搜索结果)", lat: 30.0, lng: 122.0, desc: '点击定位到模拟海域' });
+                }
+
+                // 渲染列表
+                if(matches.length > 0) {
+                    list.innerHTML = matches.map(m => `
+                        <div class="suggestion-item" onclick="selectLocation(${m.lat}, ${m.lng}, '${m.name}')">
+                            <div class="s-name">${m.name}</div>
+                            <div class="s-desc"><i class="fas fa-map-marker-alt"></i> ${m.desc}</div>
+                        </div>
+                    `).join('');
+                    list.style.display = 'block';
+                } else {
+                    list.style.display = 'none';
+                }
+            }, 300);
+        }
+
+        function selectLocation(lat, lng, name) {
+            // 隐藏列表
+            document.getElementById('search-suggestions').style.display = 'none';
+            document.getElementById('search-input').value = name;
+            
+            // 地图操作
+            map.flyTo([lat, lng], 10);
+            if(currentMarker) map.removeLayer(currentMarker);
+            currentMarker = L.marker([lat, lng]).addTo(map)
+                .bindPopup(`
+                    <div style="font-weight:bold; color:#00f2ff; margin-bottom:5px;">${name}</div>
+                    <div style="font-size:12px; color:#ccc;">LAT: ${lat.toFixed(3)} | LON: ${lng.toFixed(3)}</div>
+                    <button class="create-task-btn-sm" onclick="openTaskModal(true)">⚡ 在此创建任务</button>
+                `, { className: 'custom-popup' }).openPopup();
+        }
+
+        // 粒子 - 调整颜色以适应卫星图
+        function loadWindData() {
+            fetch('wind-global.json').then(r => r.json()).then(data => {
+                velocityLayer = L.velocityLayer({
+                    displayValues: true,
+                    displayOptions: { velocityType: 'Current', displayPosition: 'bottomleft', angleConvention: 'bearingCW' },
+                    data: data, maxVelocity: 2.0, velocityScale: 0.1, 
+                    // 高亮色，适应卫星地图
+                    colorScale: ["#ffffff", "#b3e5fc", "#4fc3f7", "#03a9f4"], 
+                    lineWidth: 2
+                });
+                velocityLayer.addTo(map);
+            }).catch(e => {
+                // 不弹窗，只在控制台显示，避免打扰
+                console.warn('流场数据加载失败: 请确保 wind-global.json 已上传且通过服务器访问'); 
+            });
+        }
+
+        function toggleBasemapPanel() { document.getElementById('basemap-panel').classList.toggle('show'); }
+        function switchLayer(type, el) {
+            document.querySelectorAll('.layer-item').forEach(item => item.classList.remove('active'));
+            el.classList.add('active');
+            if(currentLayer) map.removeLayer(currentLayer);
+            currentLayer = baseLayers[type];
+            map.addLayer(currentLayer);
+            if(velocityLayer) { velocityLayer.remove(); velocityLayer.addTo(map); }
+        }
+
+        // 任务列表渲染
+        function renderTaskList() {
+            const tasks = [
+                { title: '湖库3维精细计算模式-2026...', tag: '太湖', type: 'tag-blue', status: '完成', time: '2026-01-20 09:42' },
+                { title: '湖库2维快速计算模式-2026...', tag: '太湖', type: 'tag-blue', status: '完成', time: '2026-01-20 09:40' },
+                { title: '河道2维精细计算模式-2026...', tag: '重庆丰都', type: 'tag-blue', status: '完成', time: '2026-01-19 18:28' },
+                { title: '岸港快速计算-20260119...', tag: '三亚', type: 'tag-cyan', status: '完成', time: '2026-01-19 18:10' },
+                { title: '任意海域粒子扩散-2025...', tag: '青岛', type: 'tag-blue', status: '完成', time: '2025-10-24 11:01' },
+            ];
+            document.getElementById('task-grid-container').innerHTML = tasks.map(t => `
+                <div class="task-card">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <span class="card-tag ${t.type}">${t.tag}</span>
+                        <span style="color:${t.status==='计算中'?'#ffcd3c':'#00c087'}">● ${t.status}</span>
+                    </div>
+                    <div style="font-weight:bold; margin-bottom:8px; line-height:1.4;">${t.title}</div>
+                    <div style="font-size:12px; color:#888; margin-bottom:10px;">
+                        <i class="far fa-clock"></i> 创建: ${t.time}<br>
+                        <i class="fas fa-history"></i> 时长: 24小时
+                    </div>
+                    <div class="action-row">
+                        <i class="fas fa-eye icon-btn" title="查看"></i>
+                        <i class="fas fa-bolt icon-btn" title="快速计算"></i>
+                        <i class="far fa-star icon-btn" title="收藏"></i>
+                        <i class="fas fa-share-alt icon-btn" title="分享"></i>
+                        <i class="fas fa-trash-alt icon-btn" style="color:#ff4d4d;" title="删除"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 弹窗逻辑
+        let step = 1;
+        window.openTaskModal = function(fromMap) {
+            document.getElementById('task-modal').style.display = 'flex';
+            step = 1; updateStepUI();
+            document.getElementById('facility-select').value = fromMap ? 'arbitrary' : 'qinshan';
+            updateModeOptions();
+        }
+        window.closeTaskModal = function() { document.getElementById('task-modal').style.display = 'none'; }
+        window.updateModeOptions = function() {
+            const val = document.getElementById('facility-select').value;
+            const con = document.getElementById('chain-container');
+            let chains = (val === 'arbitrary') 
+                ? [{name:'任意点快速计算(欧拉)',icon:'fa-wind'},{name:'任意点(拉格朗日)',icon:'fa-braille'}]
+                : [{name:'近海精细计算模式',icon:'fa-project-diagram'},{name:'近海快速模式(FB)',icon:'fa-shipping-fast'}];
+            con.innerHTML = chains.map((c,i) => `
+                <div class="chain-card ${i===0?'selected':''}" onclick="this.parentNode.querySelectorAll('.chain-card').forEach(e=>e.classList.remove('selected'));this.classList.add('selected')">
+                    <i class="fas ${c.icon} chain-icon"></i><div><div style="font-weight:bold; color:#fff;">${c.name}</div></div>
+                </div>`).join('');
+        }
+        window.changeStep = function(d) { step+=d; updateStepUI(); }
+        function updateStepUI() {
+            document.querySelectorAll('.form-section').forEach((e,i)=>e.classList.toggle('active',i+1===step));
+            document.querySelectorAll('.step-item').forEach((e,i)=>e.classList.toggle('active',i+1===step));
+            document.getElementById('btn-prev').style.display = step===1?'none':'block';
+            document.getElementById('btn-next').style.display = step===3?'none':'block';
+            document.getElementById('btn-submit').style.display = step===3?'block':'none';
+        }
+        window.submitTask = function() { alert("任务已提交！"); closeTaskModal(); switchView('task'); }
+    </script>
+</body>
+</html>

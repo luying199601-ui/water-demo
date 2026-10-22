@@ -611,9 +611,11 @@
                                     <tr>
                                         <td>秦山核电站</td><td><span class="card-tag tag-blue">近岸</span></td><td>120.94, 30.43</td>
                                         <td><span style="color:#00c087">近海精细, 近海快速</span></td>
-                                        <td><button style="color:var(--primary); border:none; background:none;">配置</button></td>
+                                        <td><button class="btn-secondary" onclick="switchView('map');chooseFacility('qinshan');openTaskModal(true)">配置</button></td>
                                     </tr>
-                                    
+                                    <tr><td>田湾近海模型</td><td><span class="card-tag tag-blue">近岸</span></td><td>119.46, 34.68</td><td>EFDC 二维、三维</td><td><button class="btn-secondary" onclick="switchView('map');chooseFacility('tianwan');openTaskModal(true)">配置</button></td></tr>
+                                    <tr><td>廉江近海模型</td><td><span class="card-tag tag-blue">近岸</span></td><td>110.74, 21.20</td><td>EFDC 二维、三维</td><td><button class="btn-secondary" onclick="switchView('map');chooseFacility('lianjiang');openTaskModal(true)">配置</button></td></tr>
+                                    <tr><td>茂名近海模型</td><td><span class="card-tag tag-blue">近岸</span></td><td>111.32, 21.14</td><td>EFDC 二维、三维</td><td><button class="btn-secondary" onclick="switchView('map');chooseFacility('maoming');openTaskModal(true)">配置</button></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -746,8 +748,8 @@
     <script src="https://unpkg.com/globe.gl"></script>
     <script src="flow-overlay.js?v=20261022-flow4"></script>
     <script src="land-geography.js?v=2"></script>
-    <script src="dashboard-ui.js?v=20261022-marker2"></script>
-    <script src="mesh-planner.js?v=4"></script>
+    <script src="dashboard-ui.js?v=20261022-4sites"></script>
+    <script src="mesh-planner.js?v=5"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';

@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>水环境后果评价与决策支持系统</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-velocity/dist/leaflet-velocity.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <style>
@@ -415,222 +413,20 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-velocity/dist/leaflet-velocity.js"></script>
     <script>
-        // === 全局状态 ===
-        let map;
-        let currentMarker = null;
-        let baseLayers = {};
-        let currentLayer = null;
-        let velocityLayer = null;
-        let searchTimeout = null;
-
-        // === 1. 初始化 ===
-        function login() {
-            document.getElementById('login-page').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('login-page').style.display = 'none';
-                document.getElementById('main-interface').style.display = 'block';
-                initMap();
-                renderTaskList();
-            }, 500);
-        }
-        function logout() { location.reload(); }
-
-        // 视图切换
-        function switchView(viewName) {
-            document.querySelectorAll('.content-wrapper').forEach(el => el.classList.remove('active'));
-            document.getElementById('view-' + viewName).classList.add('active');
-            if(viewName === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
-        }
-
-        // === 2. 地图 & 搜索 (核心修复：真实 API) ===
-        function initMap() {
-            if(map) return;
-            baseLayers = {
-                'dark': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:18, opacity:0.9 }),
-                'satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:18 })
-            };
-            map = L.map('map', { center: [30.4, 122.5], zoom: 7, zoomControl: false, layers: [baseLayers['satellite']] });
-            currentLayer = baseLayers['satellite'];
-            
-            loadWindData();
-
-            map.on('click', (e) => selectLocation(e.latlng.lat, e.latlng.lng, "自定义选点"));
-
-            // 绑定回车搜索
-            document.getElementById('search-input').addEventListener('keypress', (e) => {
-                if(e.key === 'Enter') triggerSearch();
-            });
-        }
-
-        // 真实搜索逻辑
-        async function triggerSearch() {
-            const query = document.getElementById('search-input').value;
-            if(!query) return;
-
-            // 视觉反馈
-            const btn = document.querySelector('.search-icon-btn');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-            try {
-                // 调用 OpenStreetMap Nominatim API
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-                const data = await response.json();
-
-                if (data && data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lon = parseFloat(data[0].lon);
-                    
-                    // 隐藏联想列表
-                    document.getElementById('search-suggestions').style.display = 'none';
-                    
-                    // 跳转
-                    selectLocation(lat, lon, data[0].display_name.split(',')[0]);
-                } else {
-                    alert("未找到该地点");
-                }
-            } catch (e) {
-                console.error(e);
-                alert("网络错误，无法连接搜索服务");
-            } finally {
-                btn.innerHTML = '<i class="fas fa-search"></i>';
-            }
-        }
-
-        // 联想输入 (保留本地核电站优先 + 提示)
-        function handleSearchInput(query) {
-            const list = document.getElementById('search-suggestions');
-            if(!query) { list.style.display = 'none'; return; }
-
-            // 本地高优数据
-            const localDB = [
-                { name: '秦山核电站', lat: 30.435, lng: 120.941, desc: '浙江省' },
-                { name: '大亚湾核电站', lat: 22.59, lng: 114.54, desc: '广东省' },
-                { name: '三门核电站', lat: 29.10, lng: 121.63, desc: '浙江省' }
-            ];
-            const matches = localDB.filter(item => item.name.includes(query));
-
-            // 显示结果 (如果是未知地点，提示回车搜索)
-            let html = matches.map(m => `
-                <div class="suggestion-item" onclick="selectLocation(${m.lat}, ${m.lng}, '${m.name}')">
-                    <div class="s-name">${m.name}</div>
-                    <div class="s-desc"><i class="fas fa-map-marker-alt"></i> ${m.desc}</div>
-                </div>
-            `).join('');
-
-            if (matches.length === 0) {
-                 html = `<div class="suggestion-item" onclick="triggerSearch()">
-                            <div class="s-name">搜索 "${query}"</div>
-                            <div class="s-desc">按回车或点击此处搜索全球地点...</div>
-                        </div>`;
-            }
-
-            list.innerHTML = html;
-            list.style.display = 'block';
-        }
-
-        function selectLocation(lat, lng, name) {
-            document.getElementById('search-suggestions').style.display = 'none';
-            document.getElementById('search-input').value = name;
-            
-            map.flyTo([lat, lng], 10);
-            if(currentMarker) map.removeLayer(currentMarker);
-            currentMarker = L.marker([lat, lng]).addTo(map)
-                .bindPopup(`
-                    <div style="font-weight:bold; color:#00f2ff; margin-bottom:5px;">${name}</div>
-                    <div style="font-size:12px; color:#ccc;">LAT: ${lat.toFixed(3)} | LON: ${lng.toFixed(3)}</div>
-                    <button class="create-task-btn-sm" onclick="openTaskModal(true)">⚡ 在此创建任务</button>
-                `, { className: 'custom-popup' }).openPopup();
-        }
-
-        // 粒子与其他逻辑
-        function loadWindData() {
-            fetch('wind-global.json').then(r => r.json()).then(data => {
-                velocityLayer = L.velocityLayer({
-                    displayValues: true,
-                    displayOptions: { velocityType: 'Current', displayPosition: 'bottomleft', angleConvention: 'bearingCW' },
-                    data: data, maxVelocity: 2.0, velocityScale: 0.1, 
-                    colorScale: ["#ffffff", "#b3e5fc", "#4fc3f7", "#03a9f4"], 
-                    lineWidth: 2
-                });
-                velocityLayer.addTo(map);
-            }).catch(e => console.warn('流场数据未加载 (请检查服务器配置)'));
-        }
-
-        function toggleBasemapPanel() { document.getElementById('basemap-panel').classList.toggle('show'); }
-        function switchLayer(type, el) {
-            document.querySelectorAll('.layer-item').forEach(item => item.classList.remove('active'));
-            el.classList.add('active');
-            if(currentLayer) map.removeLayer(currentLayer);
-            currentLayer = baseLayers[type];
-            map.addLayer(currentLayer);
-            if(velocityLayer) { velocityLayer.remove(); velocityLayer.addTo(map); }
-        }
-
-        // 任务列表
-        function renderTaskList() {
-            const tasks = [
-                { title: '湖库3维精细计算模式-2026...', tag: '太湖', type: 'tag-blue', status: '完成', time: '2026-01-20 09:42' },
-                { title: '湖库2维快速计算模式-2026...', tag: '太湖', type: 'tag-blue', status: '完成', time: '2026-01-20 09:40' },
-                { title: '河道2维精细计算模式-2026...', tag: '重庆丰都', type: 'tag-blue', status: '完成', time: '2026-01-19 18:28' },
-                { title: '岸港快速计算-20260119...', tag: '三亚', type: 'tag-cyan', status: '完成', time: '2026-01-19 18:10' },
-                { title: '任意海域粒子扩散-2025...', tag: '青岛', type: 'tag-blue', status: '完成', time: '2025-10-24 11:01' },
-            ];
-            document.getElementById('task-grid-container').innerHTML = tasks.map(t => `
-                <div class="task-card">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <span class="card-tag ${t.type}">${t.tag}</span>
-                        <span style="color:${t.status==='计算中'?'#ffcd3c':'#00c087'}">● ${t.status}</span>
-                    </div>
-                    <div style="font-weight:bold; margin-bottom:8px; line-height:1.4;">${t.title}</div>
-                    <div style="font-size:12px; color:#888; margin-bottom:10px;">
-                        <i class="far fa-clock"></i> 创建: ${t.time}<br>
-                        <i class="fas fa-history"></i> 时长: 24小时
-                    </div>
-                    <div class="action-row">
-                        <i class="fas fa-eye icon-btn" title="查看"></i>
-                        <i class="fas fa-bolt icon-btn" title="快速计算"></i>
-                        <i class="far fa-star icon-btn" title="收藏"></i>
-                        <i class="fas fa-share-alt icon-btn" title="分享"></i>
-                        <i class="fas fa-trash-alt icon-btn" style="color:#ff4d4d;" title="删除"></i>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // 弹窗逻辑
-        let step = 1;
-        window.openTaskModal = function(fromMap) {
-            document.getElementById('task-modal').style.display = 'flex';
-            step = 1; updateStepUI();
-            document.getElementById('facility-select').value = fromMap ? 'arbitrary' : 'qinshan';
-            updateModeOptions();
-        }
-        window.closeTaskModal = function() { document.getElementById('task-modal').style.display = 'none'; }
-        window.updateModeOptions = function() {
-            const val = document.getElementById('facility-select').value;
-            const con = document.getElementById('chain-container');
-            let chains = (val === 'arbitrary') 
-                ? [{name:'任意点快速计算(欧拉)',icon:'fa-wind'},{name:'任意点(拉格朗日)',icon:'fa-braille'}]
-                : [{name:'近海精细计算模式',icon:'fa-project-diagram'},{name:'近海快速模式(FB)',icon:'fa-shipping-fast'}];
-            con.innerHTML = chains.map((c,i) => `
-                <div class="chain-card ${i===0?'selected':''}" onclick="this.parentNode.querySelectorAll('.chain-card').forEach(e=>e.classList.remove('selected'));this.classList.add('selected')">
-                    <i class="fas ${c.icon} chain-icon"></i><div><div style="font-weight:bold; color:#fff;">${c.name}</div></div>
-                </div>`).join('');
-        }
-        window.changeStep = function(d) { step+=d; updateStepUI(); }
-        function updateStepUI() {
-            document.querySelectorAll('.form-section').forEach((e,i)=>e.classList.toggle('active',i+1===step));
-            document.querySelectorAll('.step-item').forEach((e,i)=>e.classList.toggle('active',i+1===step));
-            document.getElementById('btn-prev').style.display = step===1?'none':'block';
-            document.getElementById('btn-next').style.display = step===3?'none':'block';
-            document.getElementById('btn-submit').style.display = step===3?'block':'none';
-        }
-        window.submitTask = function() { alert("任务已提交！"); closeTaskModal(); switchView('task'); }
+      function login() {
+        document.getElementById('login-page').style.opacity='0';
+        setTimeout(function() {
+          document.getElementById('login-page').style.display='none';
+          document.getElementById('main-interface').style.display='block';
+          initMap();
+          renderTaskList();
+        },250);
+      }
+      function toggleBasemapPanel() {
+        document.getElementById('basemap-panel').classList.toggle('show');
+      }
     </script>
-
     <script src="https://unpkg.com/globe.gl"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>

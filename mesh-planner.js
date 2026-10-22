@@ -36,7 +36,7 @@ function paint(){
 function where(evt){const b=$('map').getBoundingClientRect();return S.globe.toGlobeCoords(evt.clientX-b.left,evt.clientY-b.top);}
 function down(evt){if(!S.draw)return;const p=where(evt);if(!p)return;evt.preventDefault();S.start=p;S.drag=p;if(S.hit.setPointerCapture)S.hit.setPointerCapture(evt.pointerId);}
 function move(evt){if(!S.start)return;const p=where(evt);if(!p)return;S.drag=p;S.region=rect(S.start,p);if(S.type!=='river')calculate();paint();}
-function up(evt){if(!S.start)return;const p=where(evt)||S.drag;S.region=rect(S.start,p);S.start=null;S.drag=null;S.draw=false;S.hit.style.pointerEvents='none';if(!S.region){S.status='区域太小，请重新框选';refresh();return;}S.status='已确定模拟区域';if(S.type==='river')getRivers();else{calculate();refresh();}}
+function up(evt){if(!S.start)return;const p=where(evt)||S.drag;S.region=rect(S.start,p);S.start=null;S.drag=null;S.draw=false;S.hit.style.pointerEvents='none';if(!S.region){S.status='区域太小，请重新框选';refresh();return;}S.status='已确定模拟区域';if(S.type==='river')getRivers();else{S.source=S.type==='preset'?'illustrative':'generated';calculate();refresh();}}
 function attach(globe){
  S.globe=globe;const map=$('map-container');
  S.canvas=document.createElement('canvas');S.canvas.className='mesh-canvas';S.ctx=S.canvas.getContext('2d');map.appendChild(S.canvas);

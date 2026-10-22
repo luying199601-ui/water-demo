@@ -362,6 +362,63 @@
             #step-2 .chain-grid{grid-template-columns:1fr}
         }
 
+
+        /* Selected-point popup: compact, geographically anchored, no camera zoom on map click. */
+        .location-card{
+            width:258px;max-width:calc(100vw - 24px);
+            top:0;left:0;right:auto;bottom:auto;
+            padding:14px 15px 15px;
+            border-radius:10px;border:1px solid rgba(129,186,228,.52);
+            background:linear-gradient(148deg,rgba(24,43,63,.96),rgba(16,31,49,.97));
+            box-shadow:0 9px 25px rgba(0,0,0,.45);
+            animation:none;
+            z-index:2050;
+        }
+        .location-card::before{
+            content:"";position:absolute;top:var(--pointer-y,26px);
+            width:10px;height:10px;background:#1a324a;
+            border:1px solid rgba(129,186,228,.52);
+            transform:translateY(-50%) rotate(45deg);
+        }
+        .location-card.anchor-right::before{left:-6px;border-right:0;border-top:0}
+        .location-card.anchor-left::before{right:-6px;border-left:0;border-bottom:0}
+        .loc-close{top:7px;right:7px;width:25px;height:25px;font-size:12px}
+        .loc-brow{margin-bottom:7px;font-size:11px}
+        .loc-title{font-size:16px;line-height:1.3;margin:0 22px 7px 0}
+        .loc-coords{font-size:11px;margin:0;line-height:1.45}
+        .loc-divider{margin:11px 0 10px}
+        .loc-mode-label{font-size:11px;margin-bottom:8px}
+        .loc-mode-grid{gap:7px}
+        .loc-mode-button{
+            min-height:44px;gap:3px;padding:7px 6px;
+            border-radius:6px;font-size:11px;line-height:1.35;
+            box-shadow:none;
+        }
+        .loc-mode-button i:first-child{font-size:12px}
+        .loc-mode-arrow{font-size:8px}
+        .loc-mode-wait{font-size:11px;padding:5px 0}
+        .map-selected-pin{
+            position:relative;width:16px;height:16px;
+            transform:translate(-50%,-50%);
+            pointer-events:none;
+            filter:drop-shadow(0 1px 4px rgba(3,19,42,.9))
+        }
+        .selected-pin-ring{
+            position:absolute;inset:0;border-radius:50%;
+            border:2px solid #fff;background:rgba(25,118,242,.65);
+            box-shadow:0 0 0 3px rgba(39,163,255,.19),0 0 10px rgba(72,176,255,.85)
+        }
+        .selected-pin-core{position:absolute;inset:5px;border-radius:50%;background:white}
+        .globe-site.is-selected .globe-site-dot{
+            background:#298aff;border:2px solid white;
+            box-shadow:0 0 0 3px rgba(41,163,252,.28),0 0 11px #32b3ff;
+        }
+        @media(max-width:800px){
+            .location-card{width:min(245px,calc(100vw - 24px));padding:12px}
+            .loc-title{font-size:15px}
+            .loc-mode-button{min-height:44px;font-size:10px}
+        }
+
     </style>
 </head>
 <body>
@@ -600,7 +657,7 @@
     <script src="https://unpkg.com/globe.gl"></script>
     <script src="flow-overlay.js?v=20261022-flow4"></script>
     <script src="land-geography.js?v=2"></script>
-    <script src="dashboard-ui.js?v=20261022-local"></script>
+    <script src="dashboard-ui.js?v=20261022-marker2"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -647,6 +704,11 @@
       if(window.OceanFlow)OceanFlow.attach(earth);
       if(window.WaterDashboard)WaterDashboard.attach(earth,{sites:SITES,pick:pickPoint,selected:picked});
       window.addEventListener('resize',updateEarthSize);
+      // Track orbit/rotation without moving the selected location or changing the zoom.
+      const globeControls=earth.controls&&earth.controls();
+      if(globeControls&&globeControls.addEventListener){
+        globeControls.addEventListener('change',positionLocationCard);
+      }
       e('search-input').addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();triggerSearch();}});
       // Land data is served from this GitHub Pages site; no third-party map CDN is needed.
       if(window.LandGeo){
@@ -666,7 +728,10 @@
         if(window.OceanFlow)OceanFlow.landFailed();
       }
     };
-    function updateEarthSize(){if(earth)earth.width(e('map').clientWidth).height(e('map').clientHeight);}
+    function updateEarthSize(){
+      if(earth)earth.width(e('map').clientWidth).height(e('map').clientHeight);
+      positionLocationCard();
+    }
     window.resetGlobe=function(){if(earth)earth.pointOfView({lat:31,lng:108,altitude:1.22},900);};
     function refreshPoints(){if(!earth)return;if(window.WaterDashboard)WaterDashboard.refreshPoints(picked,SITES);else earth.pointsData(picked?[{name:picked.name,lat:picked.lat,lng:picked.lng,selected:true}]:[]);}
     function inRing(ring,lat,lng){let yes=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>lat)!==(b[1]>lat)&&lng<(b[0]-a[0])*(lat-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
@@ -706,6 +771,7 @@
           : '<div class="loc-mode-wait"><i class="fas fa-circle-notch fa-spin"></i> 正在识别当前位置的陆海类型…</div>';
         const manual=box.querySelector('.loc-mode-manual');
         if(manual)manual.addEventListener('click',()=>openTaskModal(true));
+        positionLocationCard();
         return;
       }
       box.innerHTML=modes.map(function(id,i){
@@ -717,25 +783,77 @@
       box.querySelectorAll('[data-chain]').forEach(function(btn){
         btn.addEventListener('click',()=>window.startTaskWithMode(btn.dataset.chain));
       });
+      positionLocationCard();
     }
     window.startTaskWithMode=function(id){
       if(!picked||!availableModes().includes(id))return;
       window.openTaskModal(true,id);
     };
-    function pickPoint(lat,lng,name){
+    function positionLocationCard(){
+      const card=e('location-card');
+      if(!earth||!picked||!card||card.style.display==='none')return;
+      const bounds=e('map'),view=earth.pointOfView();
+      if(!view)return;
+      const d=Math.PI/180;
+      const cosDistance=Math.sin(view.lat*d)*Math.sin(picked.lat*d)
+        +Math.cos(view.lat*d)*Math.cos(picked.lat*d)*Math.cos((view.lng-picked.lng)*d);
+      // Hide behind-globe popups rather than leaving an orphan card on the screen.
+      const horizon=1/(1+Math.max(.02,view.altitude));
+      if(cosDistance<horizon-.018){
+        card.style.visibility='hidden';
+        return;
+      }
+      const pt=earth.getScreenCoords(picked.lat,picked.lng,.018);
+      if(!pt||!Number.isFinite(pt.x)||!Number.isFinite(pt.y)){
+        card.style.visibility='hidden';
+        return;
+      }
+      const width=bounds.clientWidth,height=bounds.clientHeight;
+      if(pt.x<0||pt.x>width||pt.y<0||pt.y>height){
+        card.style.visibility='hidden';
+        return;
+      }
+      const w=card.offsetWidth||258,h=card.offsetHeight||210,gap=19,margin=10;
+      const right=pt.x+gap+w+margin<width||pt.x-w-gap<margin;
+      const left=Math.max(margin,Math.min(right?pt.x+gap:pt.x-w-gap,width-w-margin));
+      const low=Math.min(84,Math.max(10,height-h-12));
+      const high=Math.max(low,height-h-68);
+      const top=Math.max(low,Math.min(pt.y-28,high));
+      card.style.left=Math.round(left)+'px';
+      card.style.top=Math.round(top)+'px';
+      card.style.right='auto';
+      card.style.bottom='auto';
+      card.classList.toggle('anchor-right',right);
+      card.classList.toggle('anchor-left',!right);
+      card.style.setProperty('--pointer-y',Math.round(Math.max(12,Math.min(h-12,pt.y-top)))+'px');
+      card.style.visibility='visible';
+    }
+    window.updateLocationCardPosition=positionLocationCard;
+    function pickPoint(lat,lng,name,focusCamera=false){
       lat=Number(lat);lng=Number(lng);if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){alert('坐标无效');return;}
       const site=nearbySite(lat,lng);if(site){lat=site.lat;lng=site.lng;}
       picked={lat:lat,lng:lng,name:site?site.name:(name||'自定义点'),siteId:site?site.id:null};modeId=null;
       e('search-suggestions').style.display='none';e('search-input').value=picked.name;
       e('location-card').style.display='block';
       e('loc-name').textContent=picked.name;
-      e('loc-coordinates').textContent='经度 '+fmt(lng)+'°  ·  纬度 '+fmt(lat)+'°';
+      e('loc-coordinates').textContent='经度 '+lng.toFixed(4)+'° · 纬度 '+lat.toFixed(4)+'°';
       renderLocationModes();
-      if(earth)earth.pointOfView({lat:lat,lng:lng,altitude:1.14},950);
-      refreshPoints();updatePreview();if(e('task-modal').style.display==='flex')renderModeOptions();
+      // Map clicks preserve the existing viewpoint; only an explicit search navigates.
+      if(earth&&focusCamera){
+        const current=earth.pointOfView();
+        earth.pointOfView({lat:lat,lng:lng,altitude:Math.min(current.altitude,1.14)},950);
+      }
+      refreshPoints();
+      positionLocationCard();
+      updatePreview();
+      if(e('task-modal').style.display==='flex')renderModeOptions();
     }
     window.selectLocation=pickPoint;
-    window.closeLocationCard=function(){e('location-card').style.display='none';};
+    window.closeLocationCard=function(){
+      e('location-card').style.display='none';
+      picked=null;modeId=null;
+      refreshPoints();
+    };
     function finishMapPick(){
       if(waitingForPick){
         waitingForPick=false;
@@ -749,13 +867,13 @@
       const matches=SITES.filter(function(s){return s.name.includes(query);});
       box.innerHTML=matches.map(function(s){return '<div class="suggestion-item" data-facility="'+s.id+'"><div class="s-name">'+safe(s.name)+'</div><div class="s-desc">系统内置厂址</div></div>';}).join('')+'<div class="suggestion-item" data-global="1"><div class="s-name">全球搜索 '+safe(query)+'</div><div class="s-desc">使用地理搜索服务定位</div></div>';
       box.style.display='block';
-      box.querySelectorAll('[data-facility]').forEach(function(item){item.addEventListener('click',function(){const s=SITES.find(function(v){return v.id===item.dataset.facility;});if(s)pickPoint(s.lat,s.lng,s.name);});});
+      box.querySelectorAll('[data-facility]').forEach(function(item){item.addEventListener('click',function(){const s=SITES.find(function(v){return v.id===item.dataset.facility;});if(s)pickPoint(s.lat,s.lng,s.name,true);});});
       box.querySelector('[data-global]').addEventListener('click',triggerSearch);
     };
     window.triggerSearch=async function(){
-      const q=e('search-input').value.trim();if(!q)return;const local=SITES.find(function(s){return s.name===q;});if(local){pickPoint(local.lat,local.lng,local.name);return;}
+      const q=e('search-input').value.trim();if(!q)return;const local=SITES.find(function(s){return s.name===q;});if(local){pickPoint(local.lat,local.lng,local.name,true);return;}
       const btn=document.querySelector('.search-icon-btn');btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
-      try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q));if(!r.ok)throw Error('search');const data=await r.json();if(!data.length){alert('未找到地点');return;}pickPoint(Number(data[0].lat),Number(data[0].lon),String(data[0].display_name||q).split(',')[0]);}
+      try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q));if(!r.ok)throw Error('search');const data=await r.json();if(!data.length){alert('未找到地点');return;}pickPoint(Number(data[0].lat),Number(data[0].lon),String(data[0].display_name||q).split(',')[0],true);}
       catch(err){console.warn(err);alert('地点在线搜索不可用，可通过经纬度或三维地球直接选点。');}
       finally{btn.innerHTML='<i class="fas fa-search"></i>';}
     };
@@ -788,11 +906,11 @@
       if(method==='site'&&picked&&picked.siteId)e('facility-select').value=picked.siteId;
       if(method==='coordinates'&&picked){e('location-lat').value=picked.lat;e('location-lng').value=picked.lng;}
     };
-    window.chooseFacility=function(id){const x=SITES.find(function(v){return v.id===id;});if(x)pickPoint(x.lat,x.lng,x.name);else{picked=null;modeId=null;updatePreview();}};
+    window.chooseFacility=function(id){const x=SITES.find(function(v){return v.id===id;});if(x)pickPoint(x.lat,x.lng,x.name,true);else{picked=null;modeId=null;updatePreview();}};
     window.applyCoordinates=function(){
       const a=e('location-lat').value,b=e('location-lng').value,lat=Number(a),lng=Number(b);
       if(a.trim()===''||b.trim()===''||!Number.isFinite(lat)||!Number.isFinite(lng)||lat< -90||lat>90||lng< -180||lng>180){errorAt(1,'请填写有效经纬度（纬度 -90~90，经度 -180~180）。');return;}
-      errorAt(1,'');pickPoint(lat,lng,'经纬度自定义点');
+      errorAt(1,'');pickPoint(lat,lng,'经纬度自定义点',true);
     };
     window.pickOnGlobe=function(){waitingForPick=true;closeTaskModal();switchView('map');e('pick-notice').style.display='block';};
     function updatePreview(){const msg=picked?safe(picked.name)+'（'+fmt(picked.lat)+'°, '+fmt(picked.lng)+'°）':'尚未选择模拟地点';e('location-preview').innerHTML=msg;e('mode-location-preview').innerHTML=msg;}
@@ -845,7 +963,7 @@
     };
     window.inspectSaved=function(id){const t=tasks().find(function(x){return x.id===id;});if(t)alert('任务：'+t.name+'\n地点：'+t.point.name+'\n位置：'+fmt(t.point.lat)+'°, '+fmt(t.point.lng)+'°\n模式：'+(MODES[t.mode]?.name||t.mode)+'\n核素：'+t.source.nuclide+'\n状态：待计算（原型只保存配置）');};
     window.deleteSaved=function(id){if(confirm('删除这条保存在本地的任务配置？')){localStorage.setItem(STORE,JSON.stringify(tasks().filter(function(x){return x.id!==id;})));renderTaskList();}};
-    window.createFromCase=function(type){const c=EXAMPLES[type];if(c){switchView('map');pickPoint(c.lat,c.lng,c.name);openTaskModal(true);}};
+    window.createFromCase=function(type){const c=EXAMPLES[type];if(c){switchView('map');pickPoint(c.lat,c.lng,c.name,true);openTaskModal(true);}};
     </script>
 
 </body>

@@ -121,6 +121,14 @@ function importRiverGeoJSON(json){
  ++S.version;S.rivers=rows;S.source='imported';meshRiver();
  return {ok:true,ways:rows.length};
 }
+function focus(){
+ if(!S.globe||!S.point)return;
+ const r=S.region;
+ const lat=r?(r.s+r.n)/2:S.point.lat,lng=r?(r.w+r.e)/2:S.point.lng;
+ const width=r?Math.max(W(r),H(r)):90;
+ const altitude=Math.max(.03,Math.min(.6,width/620));
+ S.globe.pointOfView({lat,lng,altitude},850);
+}
 function onchange(fn){S.onchange=fn;}
-global.MeshPlanner={attach,activate,drawBegin,cancel,initial,resolution,riverParams,getRivers,importRiverGeoJSON,clear,paint,status,onchange};
+global.MeshPlanner={attach,activate,drawBegin,cancel,initial,resolution,riverParams,getRivers,importRiverGeoJSON,focus,clear,paint,status,onchange};
 })(window);

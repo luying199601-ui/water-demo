@@ -533,7 +533,8 @@
       }
     </script>
     <script src="https://unpkg.com/globe.gl"></script>
-    <script src="flow-overlay.js?v=6108e8d"></script>
+    <script src="flow-overlay.js?v=20261022-flow3"></script>
+    <script src="land-geography.js?v=1"></script>
     <script src="dashboard-ui.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
@@ -582,15 +583,41 @@
       if(window.WaterDashboard)WaterDashboard.attach(earth,{sites:SITES,pick:pickPoint,selected:picked});
       window.addEventListener('resize',updateEarthSize);
       e('search-input').addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();triggerSearch();}});
-      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json').then(function(r){if(!r.ok)throw Error('land data');return r.json();}).then(function(t){if(typeof topojson==='undefined')throw Error('topojson');land=topojson.feature(t,t.objects.land).geometry;landError=false;refreshTerrain();if(window.OceanFlow)OceanFlow.setLand(land);}).catch(function(err){landError=true;console.warn('陆海边界识别暂不可用',err);refreshTerrain();if(window.OceanFlow)OceanFlow.landFailed();});
+      // Land data is served from this GitHub Pages site; no third-party map CDN is needed.
+      if(window.LandGeo){
+        LandGeo.init().then(function(){
+          land=LandGeo.toGeometry();
+          landError=false;
+          refreshTerrain();
+          if(window.OceanFlow)OceanFlow.setLand(land);
+        }).catch(function(error){
+          landError=true;
+          console.warn('本地全球海陆数据加载失败',error);
+          refreshTerrain();
+          if(window.OceanFlow)OceanFlow.landFailed();
+        });
+      }else{
+        landError=true;
+        if(window.OceanFlow)OceanFlow.landFailed();
+      }
     };
     function updateEarthSize(){if(earth)earth.width(e('map').clientWidth).height(e('map').clientHeight);}
     window.resetGlobe=function(){if(earth)earth.pointOfView({lat:31,lng:108,altitude:1.22},900);};
     function refreshPoints(){if(!earth)return;if(window.WaterDashboard)WaterDashboard.refreshPoints(picked,SITES);else earth.pointsData(picked?[{name:picked.name,lat:picked.lat,lng:picked.lng,selected:true}]:[]);}
     function inRing(ring,lat,lng){let yes=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>lat)!==(b[1]>lat)&&lng<(b[0]-a[0])*(lat-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
     function inPolygon(poly,lat,lng){if(!inRing(poly[0],lat,lng))return false;for(let i=1;i<poly.length;i++)if(inRing(poly[i],lat,lng))return false;return true;}
-    function autoType(){if(!picked||!land)return null;const polys=land.type==='MultiPolygon'?land.coordinates:[land.coordinates];for(const poly of polys)if(inPolygon(poly,picked.lat,picked.lng))return 'inland';return 'ocean';}
-    function typeLabel(){const t=autoType();return getSite()?'内置厂址 · 专用模式链':t==='inland'?'识别为内陆水域':t==='ocean'?'识别为海洋水域':landError?'识别服务不可用，需手动指定陆海':'正在加载全球陆海数据';}
+    function autoType(){
+      if(!picked||!window.LandGeo)return null;
+      return LandGeo.classify(picked.lat,picked.lng);
+    }
+    function typeLabel(){
+      const t=autoType();
+      return getSite()?'内置厂址 · 专用模式链'
+        :t==='inland'?'自动识别：内陆 · 可选河流模式'
+        :t==='ocean'?'自动识别：海洋 · 可选远海模式'
+        :landError?'识别数据加载失败，需手动指定陆海'
+        :'正在读取本地全球陆海数据…';
+    }
     function refreshTerrain(){if(picked)e('loc-class').textContent=typeLabel();if(e('task-modal').style.display==='flex')renderModeOptions();}
     function pickPoint(lat,lng,name){
       lat=Number(lat);lng=Number(lng);if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){alert('坐标无效');return;}

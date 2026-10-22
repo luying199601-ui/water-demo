@@ -465,6 +465,11 @@
         @media(max-width:850px){.modal-window{width:min(380px,65vw)}.modal-header{padding:12px}.form-section{padding:12px}.step-bar{padding:10px 5px}}
         @media(max-width:600px){.modal-window{width:min(360px,100vw)}.step-bar{gap:1px}.step-item{font-size:9px}.form-grid{grid-template-columns:1fr 1fr}}
 
+
+        .mesh-file-label{display:block;text-align:center;cursor:pointer;margin-top:11px!important;padding:8px 9px;border:1px dashed #3d7a96;border-radius:6px;color:#9bcddf!important;font-size:11px!important}
+        .mesh-file-label:hover{background:#20516b;color:#fff!important}
+        .mesh-file-input{display:none}
+
     </style>
 </head>
 <body>
@@ -684,6 +689,8 @@
                         <label for="mesh-cross">横向网格数量</label>
                         <input type="number" id="mesh-cross" min="1" max="20" value="4" onchange="meshSetRiverParams()">
                         <button type="button" class="mesh-action full" onclick="meshReloadRiver()"><i class="fas fa-sync-alt"></i> 重新获取河网并生成网格</button>
+                        <label for="mesh-river-file" class="mesh-file-label"><i class="fas fa-file-import"></i> 导入河网 GeoJSON（在线数据不可用时）</label>
+                        <input type="file" id="mesh-river-file" accept=".geojson,.json,application/geo+json,application/json" onchange="meshImportRiver(this)" class="mesh-file-input">
                     </div>
                     <div class="mesh-measures">
                        <div><small>东西长度</small><strong id="mesh-width-km">-- km</strong></div>
@@ -735,7 +742,7 @@
     <script src="flow-overlay.js?v=20261022-flow4"></script>
     <script src="land-geography.js?v=2"></script>
     <script src="dashboard-ui.js?v=20261022-marker2"></script>
-    <script src="mesh-planner.js?v=1"></script>
+    <script src="mesh-planner.js?v=2"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -974,7 +981,11 @@
       stage=validPreset?3:(fromMap&&picked?2:1);
       modeId=validPreset?preselectedMode:null;
       document.querySelectorAll('.form-error').forEach(function(x){x.textContent='';});
-      if(!fromMap){picked=null;e('location-card').style.display='none';e('facility-select').value='';e('location-method').value='site';}
+      if(!fromMap){
+        picked=null;
+        if(window.MeshPlanner)MeshPlanner.clear();
+        e('location-card').style.display='none';e('facility-select').value='';e('location-method').value='site';
+      }
       else e('location-method').value='globe';
       e('terrain-override').value='auto';
       e('task-name').value=(picked?picked.name+'_':'')+(validPreset?MODES[preselectedMode].name+'_':'')+'评价任务';
@@ -986,7 +997,7 @@
     };
     window.closeTaskModal=function(){
       e('task-modal').style.display='none';
-      if(window.MeshPlanner)MeshPlanner.cancel();
+      if(window.MeshPlanner)MeshPlanner.clear();
       document.body.classList.remove('task-editing');
     };
     window.changeLocationMethod=function(method){
@@ -1058,6 +1069,16 @@
       if(window.MeshPlanner)MeshPlanner.riverParams(e('mesh-along').value,e('mesh-width').value,e('mesh-cross').value);
     };
     window.meshReloadRiver=function(){if(window.MeshPlanner)MeshPlanner.getRivers();};
+    window.meshImportRiver=async function(input){
+      const file=input.files&&input.files[0];
+      if(!file||!window.MeshPlanner)return;
+      try{
+        const json=JSON.parse(await file.text());
+        const result=MeshPlanner.importRiverGeoJSON(json);
+        if(!result.ok)alert(result.error);
+      }catch(err){alert('无法读取 GeoJSON 文件：请检查文件格式。');}
+      finally{input.value='';}
+    };
     function updateMeshUI(stat){
       if(!stat)return;
       const visible=stat.type==='river';

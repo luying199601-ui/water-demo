@@ -66,7 +66,7 @@
     {name:"菲律宾海",lat:18.8,lng:133.4,kind:"sea"}
   ];
 
-  const state={globe:null,pick:null,sites:[],borders:true,facilities:true,pov:{lat:30,lng:108,altitude:1.25},labelNodes:[],geoNodes:[],dataLoaded:false,mouseAt:0};
+  const state={globe:null,pick:null,sites:[],borders:true,facilities:true,selected:null,pov:{lat:30,lng:108,altitude:1.25},labelNodes:[],geoNodes:[],dataLoaded:false,mouseAt:0};
   const $=id=>document.getElementById(id);
   function configured(id){return state.sites.some(s=>s.id===id);}
   function ensureStatus(){
@@ -75,6 +75,18 @@
   }
   function markerHTML(d){
     const node=document.createElement("div");
+    if(d.kind==="selected"){
+      const pin=document.createElement("div");
+      pin.className="map-selected-pin";
+      pin.title="当前选定的模拟位置";
+      pin.setAttribute("aria-hidden","true");
+      const ring=document.createElement("span");
+      ring.className="selected-pin-ring";
+      const core=document.createElement("span");
+      core.className="selected-pin-core";
+      pin.appendChild(ring);pin.appendChild(core);
+      return pin;
+    }
     if(d.kind){
       const geo=document.createElement("div");
       geo.className="globe-geo-label globe-geo-"+d.kind;
@@ -84,7 +96,8 @@
       return geo;
     }
     const isConfigured=configured(d.id);
-    node.className="globe-site"+(isConfigured?" is-configured":"");
+    const active=state.selected&&Math.abs(state.selected.lat-d.lat)<.0001&&Math.abs(state.selected.lng-d.lng)<.0001;
+    node.className="globe-site"+(isConfigured?" is-configured":"")+(active?" is-selected":"");
     node.dataset.id=d.id;
     node.setAttribute("role","button");
     node.setAttribute("tabindex","0");
@@ -135,27 +148,26 @@
     if(!state.globe)return;
     state.labelNodes=[];
     state.geoNodes=[];
-    // Facility switch only controls facility markers; the cartographic labels remain.
-    if(!state.facilities){
-      state.globe.htmlLat("lat").htmlLng("lng").htmlAltitude(.013)
-        .htmlElement(markerHTML).htmlTransitionDuration(0).htmlElementsData(PLACES);
-      visibility();return;
-    }
+    const hasMatchingFacility=state.selected&&EXAMPLES.some(d=>
+      Math.abs(d.lat-state.selected.lat)<.0001&&Math.abs(d.lng-state.selected.lng)<.0001);
+    // A subtle HTML dot replaces the oversized 3D pin at arbitrary locations.
+    const chosen=(state.selected&&!hasMatchingFacility)
+      ? [{lat:state.selected.lat,lng:state.selected.lng,kind:"selected"}]
+      : [];
+    const items=(state.facilities?EXAMPLES:[]).concat(PLACES,chosen);
     state.globe
-      .htmlLat("lat").htmlLng("lng").htmlAltitude(.013)
+      .htmlLat("lat").htmlLng("lng").htmlAltitude(.016)
       .htmlElement(markerHTML).htmlTransitionDuration(0)
-      .htmlElementsData(EXAMPLES.concat(PLACES));
+      .htmlElementsData(items);
     visibility();
   }
   function refreshPoints(selected,sites){
     if(!state.globe)return;
-    if(selected){
-      state.globe.pointsData([{name:selected.name,lat:selected.lat,lng:selected.lng,selected:true}]);
-    }else{
-      state.globe.pointsData([]);
-    }
+    state.selected=selected||null;
     state.sites=sites||state.sites;
-    visibility();
+    // Do not use pointsData: the 3D cylinders look disproportionately large.
+    state.globe.pointsData([]);
+    renderHTMLSites();
   }
   function selectFacility(id){return EXAMPLES.find(x=>x.id===id)||null;}
   function showFac(on){
@@ -199,6 +211,9 @@
     if(lng)lng.textContent=(Math.abs(pov.lng)).toFixed(2)+"°"+(pov.lng>=0?"E":"W");
     if(alt)alt.textContent=(Number(pov.altitude)).toFixed(2)+" R";
     visibility();
+    if(typeof global.updateLocationCardPosition==="function"){
+      global.updateLocationCardPosition();
+    }
   }
   function hoverGeo(event){
     if(!state.globe)return;

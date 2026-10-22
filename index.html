@@ -216,6 +216,23 @@
         .task-empty{text-align:center;grid-column:1/-1;border:1px dashed #39576b;border-radius:12px;padding:65px 25px;color:#a9c8d7}
         @media(max-width:840px){.floating-brand{max-width:calc(100% - 105px)}.brand-text{font-size:12px}.home-search-bar{top:82px;width:min(90vw,480px)}.home-dock{bottom:18px;gap:4px;padding:10px}.dock-btn{width:70px}.location-card{right:10px;bottom:104px;width:min(275px,calc(100vw - 50px));padding:12px}.step-bar{padding:12px 8px}.step-item{font-size:10px}.step-circle{width:20px;height:20px;margin-right:3px}.two-col,.cases-grid{grid-template-columns:1fr}.form-section,.cases-body{padding:15px}.modal-header,.modal-footer{padding:12px}}
 
+
+        .flow-panel{left:20px;bottom:90px;width:310px;background:rgba(12,21,38,.90);backdrop-filter:blur(14px);border:1px solid rgba(108,171,214,.35);border-radius:14px;padding:15px;box-shadow:0 16px 35px #0006;box-sizing:border-box}
+        .flow-panel-header{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:650;font-size:14px;color:#eafaff}
+        .flow-panel-header i{color:#49d5ff;margin-right:7px}
+        .flow-toggle{display:flex;gap:5px;align-items:center;font-size:11px;color:#abcee2}
+        .flow-toggle input{width:15px;height:15px;accent-color:#00dffa}
+        .flow-status{font-size:11px;color:#91afc7;margin:11px 0 12px;min-height:16px}
+        .flow-toolbar{display:flex;align-items:center;gap:7px}
+        .flow-toolbar label{color:#b4cad9;font-size:11px;white-space:nowrap}
+        .flow-toolbar select{flex:1;min-width:65px;padding:7px 5px;color:#b9e9f8;font-size:11px;background:#102a41}
+        .flow-toolbar button{border:1px solid #395b78;border-radius:6px;color:#caefff;background:#193148;font-size:11px;padding:8px;white-space:nowrap}
+        .flow-toolbar button:hover{border-color:var(--primary)}
+        .flow-scale{display:flex;flex-direction:column;gap:8px;color:#97aec5;font-size:10px;margin-top:14px}
+        .flow-gradient{height:4px;border-radius:6px;background:linear-gradient(90deg,#124b68,#559dcc,#56dffa,#b4faff);display:block}
+        .flow-foot{display:flex;justify-content:space-between;color:#76a1b9;font-size:10px;margin-top:11px}
+        @media(max-width:840px){.flow-panel{width:230px;bottom:100px;left:10px;padding:10px}.flow-toolbar{flex-wrap:wrap}.flow-status{font-size:10px}.flow-panel-header{font-size:12px}.globe-help{display:none}}
+
     </style>
 </head>
 <body>
@@ -235,6 +252,13 @@
             <div id="map-container">
                 <div id="map"></div>
                 <div class="globe-help">拖动旋转地球 · 滚轮缩放 · 点击球面选取模拟地点</div>
+                <div class="flow-panel ui-layer">
+                    <div class="flow-panel-header"><span><i class="fas fa-water"></i> 全球海流动态演示</span><label class="flow-toggle"><input id="flow-switch" type="checkbox" checked onchange="OceanFlow.setEnabled(this.checked)"><span>开启</span></label></div>
+                    <div class="flow-status" id="flow-status">正在加载全球海陆掩膜…</div>
+                    <div class="flow-toolbar"><label for="flow-density">流线密度</label><select id="flow-density" onchange="OceanFlow.setDensity(this.value)"><option value="low">稀疏</option><option value="medium" selected>标准</option><option value="high">较密</option></select><button id="flow-play" onclick="OceanFlow.togglePlay()"><i class="fas fa-pause"></i> 暂停动画</button></div>
+                    <div class="flow-scale"><span class="flow-gradient"></span><span>概念性流向与相对强弱（非实测流速）</span></div>
+                    <div class="flow-foot"><span id="flow-count">0 条演示流线</span><span>演示数据 · 非预报</span></div>
+                </div>
                 <div class="ui-layer location-card" id="location-card" style="display:none">
                     <div class="loc-brow"><i class="fas fa-map-marker-alt"></i> 当前评价地点</div>
                     <div id="loc-name" class="loc-title"></div>
@@ -428,6 +452,7 @@
       }
     </script>
     <script src="https://unpkg.com/globe.gl"></script>
+    <script src="flow-overlay.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -454,16 +479,17 @@
       if(typeof Globe!=='function'){e('map').innerHTML='<div style="padding:24vh 10%;text-align:center;color:#ffbb9e">三维地球加载失败，请检查是否可以访问 unpkg.com。</div>';return;}
       earth=Globe()(e('map')).globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
         .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-        .backgroundColor('#020916').showAtmosphere(true).atmosphereColor('#00c9ff').atmosphereAltitude(.13)
+        .backgroundColor('#020916').backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png').showAtmosphere(true).atmosphereColor('#00c9ff').atmosphereAltitude(.13)
         .pointLat('lat').pointLng('lng').pointAltitude(function(d){return d.selected?.035:.02;})
         .pointRadius(function(d){return d.selected?.42:.27;}).pointColor(function(d){return d.selected?'#fff2a0':'#17dfe8';})
         .pointLabel(function(d){return safe(d.name);})
         .onGlobeClick(function(p){pickPoint(p.lat,p.lng,'地图选点');finishMapPick();})
         .onPointClick(function(p){pickPoint(p.lat,p.lng,p.name);finishMapPick();});
       earth.pointOfView({lat:28,lng:110,altitude:2.2},0);updateEarthSize();refreshPoints();
+      if(window.OceanFlow)OceanFlow.attach(earth);
       window.addEventListener('resize',updateEarthSize);
       e('search-input').addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();triggerSearch();}});
-      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json').then(function(r){if(!r.ok)throw Error('land data');return r.json();}).then(function(t){if(typeof topojson==='undefined')throw Error('topojson');land=topojson.feature(t,t.objects.land).geometry;landError=false;refreshTerrain();}).catch(function(err){landError=true;console.warn('陆海边界识别暂不可用',err);refreshTerrain();});
+      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json').then(function(r){if(!r.ok)throw Error('land data');return r.json();}).then(function(t){if(typeof topojson==='undefined')throw Error('topojson');land=topojson.feature(t,t.objects.land).geometry;landError=false;refreshTerrain();if(window.OceanFlow)OceanFlow.setLand(land);}).catch(function(err){landError=true;console.warn('陆海边界识别暂不可用',err);refreshTerrain();if(window.OceanFlow)OceanFlow.landFailed();});
     };
     function updateEarthSize(){if(earth)earth.width(e('map').clientWidth).height(e('map').clientHeight);}
     window.resetGlobe=function(){if(earth)earth.pointOfView({lat:28,lng:110,altitude:2.2},900);};

@@ -419,6 +419,52 @@
             .loc-mode-button{min-height:44px;font-size:10px}
         }
 
+
+        /* Right-side task workflow; map remains visible and interactive. */
+        .modal-overlay{
+           background:transparent;backdrop-filter:none;justify-content:flex-end;align-items:stretch;
+           padding:0;pointer-events:none;z-index:5100;
+        }
+        .modal-window{
+           height:100dvh;width:min(405px,42vw);max-width:100%;border-radius:0;
+           border:0;border-left:1px solid rgba(83,161,204,.48);pointer-events:auto;
+           box-shadow:-17px 0 45px rgba(0,0,0,.4);background:#12253a;
+        }
+        .modal-header{padding:16px 18px;background:#183149;flex-shrink:0}
+        .step-bar{padding:13px 10px;gap:5px;flex-shrink:0}
+        .step-item{font-size:10px;white-space:normal;line-height:1.25}
+        .step-circle{height:19px;width:19px;font-size:10px;flex-shrink:0;margin-right:4px}
+        .form-section{padding:16px 18px 22px;min-height:0}
+        .form-section h3{font-size:15px;margin:2px 0 8px}
+        .modal-footer{padding:12px 15px;flex-shrink:0}
+        .form-grid{grid-template-columns:1fr 1fr;gap:10px}
+        .method-panel{padding:11px;margin:12px 0}
+        .chain-grid,#step-2 .chain-grid{grid-template-columns:1fr;gap:8px}
+        #step-2 .chain-card{min-height:74px;padding:12px}
+        .mesh-canvas,.mesh-hit{position:absolute;inset:0;width:100%;height:100%;z-index:10}
+        .mesh-canvas{pointer-events:none}
+        .mesh-hit{cursor:crosshair;touch-action:none;background:transparent;z-index:11}
+        .mesh-configuration{padding:12px;background:rgba(16,41,62,.74);border:1px solid #315673;border-radius:10px}
+        .mesh-title-line{color:#71d8f4;font-size:13px;font-weight:700;display:flex;gap:8px;align-items:center;margin-bottom:11px}
+        .mesh-button-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+        .mesh-action{padding:9px 8px;border:1px solid #4c7898;color:#d9f7ff;background:#1a3b57;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+        .mesh-action.primary{background:#187dbe;border-color:#189ed2}
+        .mesh-action.full{width:100%;margin-top:11px}
+        .mesh-action:hover{border-color:#70ddff;background:#245979}
+        .mesh-configuration label{font-size:11px;margin:12px 0 6px}
+        .mesh-configuration input{padding:8px 9px;font-size:12px}
+        .mesh-configuration .two-col{gap:7px}
+        .mesh-measures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:12px 0 10px}
+        .mesh-measures>div{background:#15334c;padding:9px;border:1px solid #284b67;border-radius:5px;display:flex;flex-direction:column;gap:5px}
+        .mesh-measures small{color:#96b4cd;font-size:10px}.mesh-measures strong{color:#e4f9ff;font-size:13px}
+        .mesh-status{font-size:11px;line-height:1.55;color:#93b7cf;padding:6px 2px;min-height:20px}
+        .mesh-configuration[data-ready="true"] .mesh-status{color:#b5e7d9}
+        .mesh-section-divider{height:1px;background:#34516a;margin:16px 0}
+        .mesh-step-summary{padding:11px 13px;color:#a1e4e9;border-left:3px solid #1dd0e0;background:#1c3c55;border-radius:5px;font-size:12px;margin:1px 0 17px}
+        .task-editing .location-card{display:none!important}
+        @media(max-width:850px){.modal-window{width:min(380px,65vw)}.modal-header{padding:12px}.form-section{padding:12px}.step-bar{padding:10px 5px}}
+        @media(max-width:600px){.modal-window{width:min(360px,100vw)}.step-bar{gap:1px}.step-item{font-size:9px}.form-grid{grid-template-columns:1fr 1fr}}
+
     </style>
 </head>
 <body>
@@ -618,7 +664,37 @@
                 <p id="wizard-error-2" class="form-error"></p>
             </section>
             <section class="form-section" id="step-3">
-                <h3>参数设置</h3><p class="hint">配置模型计算的基础参数。原型阶段仅保存任务配置。</p>
+                <h3>模拟区域与网格</h3>
+                <p class="hint">在左侧三维地球框选区域。规则网格及河网网格均为前端预览，尚未运行计算。</p>
+                <div id="mesh-configuration" class="mesh-configuration">
+                    <div class="mesh-title-line"><i class="fas fa-draw-polygon"></i><span id="mesh-type-title">模拟区域设置</span></div>
+                    <div class="mesh-button-row">
+                        <button type="button" class="mesh-action primary" id="mesh-draw" onclick="meshDraw()"><i class="fas fa-vector-square"></i> 框选矩形</button>
+                        <button type="button" class="mesh-action" id="mesh-default" onclick="meshUseDefault()"><i class="fas fa-crosshairs"></i> 按地点生成</button>
+                    </div>
+                    <div id="mesh-ocean-fields">
+                        <label for="mesh-resolution">水平网格分辨率（km）</label>
+                        <input type="number" id="mesh-resolution" min="0.05" max="100" step="0.25" value="2" onchange="meshSetResolution()">
+                    </div>
+                    <div id="mesh-river-fields" style="display:none">
+                        <div class="two-col">
+                            <div><label for="mesh-along">沿河方向间距（m）</label><input type="number" id="mesh-along" min="50" max="10000" value="400" onchange="meshSetRiverParams()"></div>
+                            <div><label for="mesh-width">示意河道宽度（m）</label><input type="number" id="mesh-width" min="10" max="10000" value="160" onchange="meshSetRiverParams()"></div>
+                        </div>
+                        <label for="mesh-cross">横向网格数量</label>
+                        <input type="number" id="mesh-cross" min="1" max="20" value="4" onchange="meshSetRiverParams()">
+                        <button type="button" class="mesh-action full" onclick="meshReloadRiver()"><i class="fas fa-sync-alt"></i> 重新获取河网并生成网格</button>
+                    </div>
+                    <div class="mesh-measures">
+                       <div><small>东西长度</small><strong id="mesh-width-km">-- km</strong></div>
+                       <div><small>南北长度</small><strong id="mesh-height-km">-- km</strong></div>
+                       <div><small>矩形面积</small><strong id="mesh-area-km">-- km²</strong></div>
+                       <div><small>网格数量</small><strong id="mesh-count">--</strong></div>
+                    </div>
+                    <div class="mesh-status" role="status" id="mesh-status">请选择模拟区域。</div>
+                </div>
+                <div class="mesh-section-divider"></div>
+                <h3>计算参数设置</h3><p class="hint">保持原有任务名称、时长、步长、输出间隔配置。</p>
                 <div class="two-col form-grid">
                     <div><label for="task-name">任务名称</label><input id="task-name" maxlength="90"></div>
                     <div><label for="task-duration">模拟时长（h）</label><input id="task-duration" type="number" min="1" max="8760" value="24"></div>
@@ -627,6 +703,7 @@
                 </div><p id="wizard-error-3" class="form-error"></p>
             </section>
             <section class="form-section" id="step-4">
+                <div id="mesh-step-summary" class="mesh-step-summary">模拟区域网格摘要</div>
                 <h3>源项设置</h3><p class="hint">配置源项参数，尚未连接真实迁移扩散计算。</p>
                 <div class="two-col form-grid">
                     <div><label for="source-nuclide">核素名称</label><input id="source-nuclide" value="Cs-137" maxlength="50"></div>
@@ -658,6 +735,7 @@
     <script src="flow-overlay.js?v=20261022-flow4"></script>
     <script src="land-geography.js?v=2"></script>
     <script src="dashboard-ui.js?v=20261022-marker2"></script>
+    <script src="mesh-planner.js?v=1"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -703,6 +781,10 @@
       earth.pointOfView({lat:31,lng:108,altitude:1.22},0);updateEarthSize();refreshPoints();
       if(window.OceanFlow)OceanFlow.attach(earth);
       if(window.WaterDashboard)WaterDashboard.attach(earth,{sites:SITES,pick:pickPoint,selected:picked});
+      if(window.MeshPlanner){
+        MeshPlanner.attach(earth);
+        MeshPlanner.onchange(updateMeshUI);
+      }
       window.addEventListener('resize',updateEarthSize);
       // Track orbit/rotation without moving the selected location or changing the zoom.
       const globeControls=earth.controls&&earth.controls();
@@ -898,9 +980,15 @@
       e('task-name').value=(picked?picked.name+'_':'')+(validPreset?MODES[preselectedMode].name+'_':'')+'评价任务';
       window.changeLocationMethod(e('location-method').value);
       e('location-card').style.display='none';
-      e('task-modal').style.display='flex';updatePreview();updateWizard();
+      e('task-modal').style.display='flex';
+      document.body.classList.add('task-editing');
+      updatePreview();updateWizard();
     };
-    window.closeTaskModal=function(){e('task-modal').style.display='none';};
+    window.closeTaskModal=function(){
+      e('task-modal').style.display='none';
+      if(window.MeshPlanner)MeshPlanner.cancel();
+      document.body.classList.remove('task-editing');
+    };
     window.changeLocationMethod=function(method){
       ['site','coordinates','globe'].forEach(function(x){e('method-'+x).style.display=x===method?'block':'none';});
       if(method==='site'&&picked&&picked.siteId)e('facility-select').value=picked.siteId;
@@ -934,7 +1022,12 @@
       errorAt(n,'');
       if(n===1&&!picked){errorAt(n,'请先通过内置厂址、经纬度输入或地图点选设置模拟地点。');return false;}
       if(n===2&&!modeId){errorAt(n,'没有可用模式链；请尝试手动指定内陆或海洋。');return false;}
-      if(n===3){const a=Number(e('task-duration').value),b=Number(e('task-timestep').value),c=Number(e('task-output').value);
+      if(n===3){
+        if(window.MeshPlanner&&!MeshPlanner.status().ready){
+          errorAt(n,'请先框选模拟区域并生成网格。河流模式需要成功获取河网数据。');
+          return false;
+        }
+        const a=Number(e('task-duration').value),b=Number(e('task-timestep').value),c=Number(e('task-output').value);
         if(!e('task-name').value.trim()||!e('task-duration').value||!e('task-timestep').value||!e('task-output').value||!(a>0&&a<=8760&&b>0&&c>0)){errorAt(n,'请填写有效任务名称和正数计算参数。');return false;}
       }
       if(n===4){const a=e('source-activity').value,d=Number(e('source-duration').value),start=Number(e('source-offset').value),total=Number(e('task-duration').value);
@@ -947,12 +1040,51 @@
       document.querySelectorAll('.step-item').forEach(function(x,i){x.classList.toggle('active',i+1===stage);});
       e('btn-prev').style.display=stage===1?'none':'block';e('btn-next').style.display=stage===4?'none':'block';e('btn-submit').style.display=stage===4?'block':'none';
       if(stage===2){updatePreview();renderModeOptions();}
+      if(stage===3||stage===4){
+        if(window.MeshPlanner&&picked&&modeId){
+          MeshPlanner.activate(picked,modeId);
+          updateMeshUI(MeshPlanner.status());
+        }
+      }
+    }
+    window.meshDraw=function(){
+      if(!window.MeshPlanner)return;
+      MeshPlanner.drawBegin();
+      e('mesh-draw').innerHTML='<i class="fas fa-mouse-pointer"></i> 在地球上拖动';
+    };
+    window.meshUseDefault=function(){if(window.MeshPlanner)MeshPlanner.initial();};
+    window.meshSetResolution=function(){if(window.MeshPlanner)MeshPlanner.resolution(e('mesh-resolution').value);};
+    window.meshSetRiverParams=function(){
+      if(window.MeshPlanner)MeshPlanner.riverParams(e('mesh-along').value,e('mesh-width').value,e('mesh-cross').value);
+    };
+    window.meshReloadRiver=function(){if(window.MeshPlanner)MeshPlanner.getRivers();};
+    function updateMeshUI(stat){
+      if(!stat)return;
+      const visible=stat.type==='river';
+      e('mesh-ocean-fields').style.display=visible?'none':'block';
+      e('mesh-river-fields').style.display=visible?'block':'none';
+      e('mesh-draw').style.display=stat.type==='preset'?'none':'inline-flex';
+      e('mesh-default').style.display=stat.type==='preset'?'none':'inline-flex';
+      e('mesh-type-title').textContent=stat.type==='preset'?'厂址模型网格预览':visible?'河道导向网格':'远海规则网格';
+      e('mesh-width-km').textContent=stat.region?stat.widthKm.toFixed(2)+' km':'--';
+      e('mesh-height-km').textContent=stat.region?stat.heightKm.toFixed(2)+' km':'--';
+      e('mesh-area-km').textContent=stat.region?stat.areaKm2.toFixed(2)+' km²':'--';
+      e('mesh-count').textContent=stat.region
+        ?(visible?stat.cells+' 单元 / '+stat.riverSections+' 个断面':stat.cols+' × '+stat.rows+' = '+stat.cells)
+        :'--';
+      e('mesh-status').textContent=stat.status||'请选择或框选计算区域。';
+      e('mesh-draw').innerHTML=stat.drawing?'<i class="fas fa-mouse-pointer"></i> 拖动框选中…':'<i class="fas fa-vector-square"></i> 框选矩形';
+      e('mesh-step-summary').textContent=stat.region
+        ?'已选模拟区域：'+stat.widthKm+' × '+stat.heightKm+' km · 约 '+stat.cells+' 个网格单元'
+        :'尚未生成模拟区域网格';
+      e('mesh-configuration').dataset.ready=String(stat.ready);
+      // For exact mesh discretization, the solver will need real bathymetry and wet/dry masking.
     }
     window.updateSourceForm=function(){const instant=e('source-type').value==='instant';e('activity-label').textContent=instant?'总释放活度（Bq）':'释放活度率（Bq/h）';e('release-duration-area').style.display=instant?'none':'block';};
     function tasks(){try{const data=JSON.parse(localStorage.getItem(STORE)||'[]');return Array.isArray(data)?data:[];}catch(err){return [];}}
     window.submitTask=function(){
       if(!validStep(4)||!picked||!modeId)return;
-      const t={id:'T'+Date.now(),name:e('task-name').value.trim(),point:{...picked},mode:modeId,duration:Number(e('task-duration').value),timeStep:Number(e('task-timestep').value),output:Number(e('task-output').value),source:{nuclide:e('source-nuclide').value.trim(),type:e('source-type').value,activity:Number(e('source-activity').value),offset:Number(e('source-offset').value),duration:Number(e('source-duration').value)},created:new Date().toLocaleString('zh-CN',{hour12:false})};
+      const t={id:'T'+Date.now(),name:e('task-name').value.trim(),point:{...picked},mode:modeId,duration:Number(e('task-duration').value),timeStep:Number(e('task-timestep').value),output:Number(e('task-output').value),source:{nuclide:e('source-nuclide').value.trim(),type:e('source-type').value,activity:Number(e('source-activity').value),offset:Number(e('source-offset').value),duration:Number(e('source-duration').value)},created:new Date().toLocaleString('zh-CN',{hour12:false}),mesh:window.MeshPlanner?MeshPlanner.status():null};
       try{const list=tasks();list.unshift(t);localStorage.setItem(STORE,JSON.stringify(list));}catch(err){alert('此浏览器无法保存任务配置。');return;}
       closeTaskModal();switchView('task');alert('任务配置已保存至本地浏览器。这是前端演示版，尚未连接真实计算引擎或数据库。');
     };

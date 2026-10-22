@@ -470,8 +470,7 @@
         .mesh-file-label:hover{background:#20516b;color:#fff!important}
         .mesh-file-input{display:none}
 
-        .mesh-view-button{margin-top:10px!important;border-color:#2d8d9e;color:#c1edfc;background:#1b4a67}
-    </style>
+            </style>
 </head>
 <body>
 
@@ -657,7 +656,7 @@
                 <select id="location-method" onchange="changeLocationMethod(this.value)">
                     <option value="site">选择内置厂址</option><option value="coordinates">输入经纬度</option><option value="globe">通过地图点选</option>
                 </select>
-                <div class="method-panel" id="method-site"><label for="facility-select">系统内置厂址</label><select id="facility-select" onchange="chooseFacility(this.value)"><option value="">请选择厂址</option><option value="qinshan">秦山核电站</option></select><p class="hint">仅显示已配置的厂址；厂址只展示专用模式链。</p></div>
+                <div class="method-panel" id="method-site"><label for="facility-select">系统内置厂址</label><select id="facility-select" onchange="chooseFacility(this.value)"><option value="">请选择厂址</option><option value="qinshan">秦山核电站</option><option value="tianwan">田湾近海模型</option><option value="lianjiang">廉江近海模型</option><option value="maoming">茂名近海模型</option></select><p class="hint">仅显示已配置的厂址；厂址只展示专用模式链。</p></div>
                 <div class="method-panel" id="method-coordinates" style="display:none"><div class="two-col"><div><label for="location-lat">纬度（°）</label><input type="number" id="location-lat" step="any" placeholder="-90 ~ 90"></div><div><label for="location-lng">经度（°）</label><input type="number" id="location-lng" step="any" placeholder="-180 ~ 180"></div></div><button class="btn-secondary" style="margin-top:14px" onclick="applyCoordinates()">确认坐标</button></div>
                 <div class="method-panel" id="method-globe" style="display:none"><p class="hint">已从首页地图选取的位置会自动带入，也可以重新点选。</p><button class="btn-secondary" onclick="pickOnGlobe()"><i class="fas fa-crosshairs"></i> 返回地球点选</button></div>
                 <div class="location-summary"><div class="summary-title">已选择地点</div><div id="location-preview">尚未选择</div></div>
@@ -678,6 +677,11 @@
                         <button type="button" class="mesh-action primary" id="mesh-draw" onclick="meshDraw()"><i class="fas fa-vector-square"></i> 框选矩形</button>
                         <button type="button" class="mesh-action" id="mesh-default" onclick="meshUseDefault()"><i class="fas fa-crosshairs"></i> 按地点生成</button>
                     </div>
+                    <div id="mesh-range-fields">
+                        <label for="mesh-range-radius">模拟范围半径（km）</label>
+                        <input type="number" id="mesh-range-radius" min="0.5" max="200" step="0.5" value="20" onchange="meshRangeChanged()">
+                        <p class="hint">以当前地点为中心生成矩形，东西与南北边长约为半径的两倍。也可直接框选区域。</p>
+                    </div>
                     <div id="mesh-ocean-fields">
                         <label for="mesh-resolution">水平网格分辨率（km）</label>
                         <input type="number" id="mesh-resolution" min="0.05" max="100" step="0.25" value="2" onchange="meshSetResolution()">
@@ -693,11 +697,10 @@
                         <label for="mesh-river-file" class="mesh-file-label"><i class="fas fa-file-import"></i> 导入河网 GeoJSON（在线数据不可用时）</label>
                         <input type="file" id="mesh-river-file" accept=".geojson,.json,application/geo+json,application/json" onchange="meshImportRiver(this)" class="mesh-file-input">
                     </div>
-                    <button class="mesh-action full mesh-view-button" type="button" onclick="meshFocus()"><i class="fas fa-search-plus"></i> 在地图中查看模拟网格</button>
                     <div class="mesh-measures">
                        <div><small>东西长度</small><strong id="mesh-width-km">-- km</strong></div>
                        <div><small>南北长度</small><strong id="mesh-height-km">-- km</strong></div>
-                       <div><small>矩形面积</small><strong id="mesh-area-km">-- km²</strong></div>
+                       <div><small id="mesh-area-label">矩形面积</small><strong id="mesh-area-km">-- km²</strong></div>
                        <div><small>网格数量</small><strong id="mesh-count">--</strong></div>
                     </div>
                     <div class="mesh-status" role="status" id="mesh-status">请选择模拟区域。</div>
@@ -744,7 +747,7 @@
     <script src="flow-overlay.js?v=20261022-flow4"></script>
     <script src="land-geography.js?v=2"></script>
     <script src="dashboard-ui.js?v=20261022-marker2"></script>
-    <script src="mesh-planner.js?v=3"></script>
+    <script src="mesh-planner.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -758,10 +761,17 @@
       if(facility){if(window.WaterDashboard)WaterDashboard.showFacilities(on);}
       else{if(window.OceanFlow)OceanFlow.setEnabled(on);}
     };
-    const SITES=[{id:'qinshan',name:'秦山核电站',lat:30.435,lng:120.941,chains:['fine','fast']}];
+    const SITES=[
+      {id:'qinshan',name:'秦山核电站',lat:30.435,lng:120.941,chains:['fine','fast','near2d','near3d']},
+      {id:'tianwan',name:'田湾近海模型',lat:34.68,lng:119.46,chains:['near2d','near3d']},
+      {id:'lianjiang',name:'廉江近海模型',lat:21.20,lng:110.74,chains:['near2d','near3d']},
+      {id:'maoming',name:'茂名近海模型',lat:21.14,lng:111.32,chains:['near2d','near3d']}
+    ];
     const MODES={
       fine:{name:'近海精细计算模式',desc:'秦山厂址已配置的近海精细模式',icon:'fa-project-diagram'},
       fast:{name:'近海快速模式',desc:'秦山厂址已配置的近海快速模式',icon:'fa-shipping-fast'},
+      near2d:{name:'近海 EFDC 二维模式',desc:'使用归档的二维 EFDC 模型网格',icon:'fa-th'},
+      near3d:{name:'近海 EFDC 三维模式',desc:'使用归档的三维 EFDC 模型水平网格',icon:'fa-cubes'},
       riverSimple:{name:'河流简单模式',desc:'内陆河流简化迁移扩散',icon:'fa-water'},
       riverFast:{name:'河流快速模式',desc:'内陆河流快速计算',icon:'fa-stream'},
       oceanEuler:{name:'远海欧拉',desc:'海洋欧拉浓度场计算',icon:'fa-globe-asia'},
@@ -1065,8 +1075,14 @@
       MeshPlanner.drawBegin();
       e('mesh-draw').innerHTML='<i class="fas fa-mouse-pointer"></i> 在地球上拖动';
     };
-    window.meshUseDefault=function(){if(window.MeshPlanner)MeshPlanner.initial();};
-    window.meshFocus=function(){if(window.MeshPlanner)MeshPlanner.focus();};
+    window.meshUseDefault=function(){
+      if(!window.MeshPlanner)return;
+      if(!MeshPlanner.setRangeRadius(e('mesh-range-radius').value)){alert('模拟范围半径必须在 0.5～200 km 之间');return;}
+      MeshPlanner.initial();
+    };
+    window.meshRangeChanged=function(){
+      if(window.MeshPlanner)MeshPlanner.setRangeRadius(e('mesh-range-radius').value);
+    };
     window.meshSetResolution=function(){if(window.MeshPlanner)MeshPlanner.resolution(e('mesh-resolution').value);};
     window.meshSetRiverParams=function(){
       if(window.MeshPlanner)MeshPlanner.riverParams(e('mesh-along').value,e('mesh-width').value,e('mesh-cross').value);
@@ -1085,16 +1101,22 @@
     function updateMeshUI(stat){
       if(!stat)return;
       const visible=stat.type==='river';
-      e('mesh-ocean-fields').style.display=visible?'none':'block';
+      e('mesh-range-fields').style.display=stat.type==='preset'?'none':'block';
+      e('mesh-ocean-fields').style.display=(visible||stat.type==='preset')?'none':'block';
       e('mesh-river-fields').style.display=visible?'block':'none';
       e('mesh-draw').style.display=stat.type==='preset'?'none':'inline-flex';
       e('mesh-default').style.display=stat.type==='preset'?'none':'inline-flex';
-      e('mesh-type-title').textContent=stat.type==='preset'?'厂址模型网格预览':visible?'河道导向网格':'远海规则网格';
+      e('mesh-type-title').textContent=stat.type==='preset'?'已集成的 EFDC 厂址网格':visible?'河道导向网格':'远海规则网格';
       e('mesh-width-km').textContent=stat.region?stat.widthKm.toFixed(2)+' km':'--';
       e('mesh-height-km').textContent=stat.region?stat.heightKm.toFixed(2)+' km':'--';
-      e('mesh-area-km').textContent=stat.region?stat.areaKm2.toFixed(2)+' km²':'--';
+      e('mesh-area-label').textContent=stat.type==='preset'?'原模型湿网格面积合计':'矩形面积';
+      e('mesh-area-km').textContent=stat.region
+        ?(stat.type==='preset'&&stat.wetAreaKm2>0?stat.wetAreaKm2.toFixed(2):stat.areaKm2.toFixed(2))+' km²'
+        :'--';
       e('mesh-count').textContent=stat.region
-        ?(visible?stat.cells+' 单元 / '+stat.riverSections+' 个断面':stat.cols+' × '+stat.rows+' = '+stat.cells)
+        ?(stat.type==='preset'?stat.nativeCount+' 单元 · 抽样显示 '+stat.previewCount
+          :visible?stat.cells+' 单元 / '+stat.riverSections+' 个断面'
+          :stat.cols+' × '+stat.rows+' = '+stat.cells)
         :'--';
       e('mesh-status').textContent=stat.status||'请选择或框选计算区域。';
       e('mesh-draw').innerHTML=stat.drawing?'<i class="fas fa-mouse-pointer"></i> 拖动框选中…':'<i class="fas fa-vector-square"></i> 框选矩形';

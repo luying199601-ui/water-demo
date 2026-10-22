@@ -279,6 +279,26 @@
             .geolayers{top:199px;right:9px}
         }
 
+
+        /* Compact globe-layer controls: replace the three permanently displayed info cards. */
+        .compact-layer-controls{display:flex;flex-direction:column;align-items:flex-end;gap:7px;margin-top:8px}
+        .compact-layer-btn{display:flex;align-items:center;justify-content:flex-start;gap:6px;width:83px;min-height:33px;padding:0 9px;border-radius:19px;border:1px solid rgba(97,145,187,.42);background:rgba(12,27,44,.88);color:#a3b7c9;font-size:12px;font-weight:500;box-shadow:0 3px 12px rgba(0,0,0,.27);backdrop-filter:blur(7px)}
+        .compact-layer-btn i{font-size:12px;width:14px;text-align:center}
+        .compact-layer-btn.is-on{color:#e9faff;border-color:rgba(43,204,242,.7);background:rgba(13,50,77,.85)}
+        .compact-layer-btn:hover{border-color:#43d9f6}
+        .compact-layer-light{margin-left:auto;width:6px;height:6px;border-radius:50%;background:#617185}
+        .compact-layer-btn.is-on .compact-layer-light{background:#38eac8;box-shadow:0 0 7px rgba(56,234,200,.8)}
+        .mini-layer-options{padding:12px 14px 7px;border-top:1px solid rgba(100,142,180,.22)}
+        .mini-layer-checkbox{display:flex;align-items:center;gap:7px;font-size:12px;color:#d1e1ef;white-space:nowrap}
+        .mini-layer-checkbox input{width:15px;height:15px;accent-color:#10d6ed}
+        .mini-setting-label{display:block;margin:10px 0 5px;font-size:11px;color:#9fb9ca}
+        .mini-layer-options select{width:100%;height:31px;font-size:12px}
+        .mini-play-button{width:100%;padding:7px 9px;margin-top:8px;border-radius:6px;border:1px solid #35546a;color:#c5e6f5;background:#172e42;font-size:11px}
+        .mini-layer-notice{font-size:10px;line-height:1.5;color:#8199a9;margin:8px 0 0}
+        /* Move the bottom dock to the bottom now that the coordinate HUD is gone. */
+        .home-dock{bottom:24px}
+        @media(max-width:800px){.home-dock{bottom:18px}.compact-layer-btn{width:75px;min-height:31px;font-size:11px}.compact-layer-controls{gap:5px;margin-top:5px}}
+
     </style>
 </head>
 <body>
@@ -298,13 +318,6 @@
             <div id="map-container">
                 <div id="map"></div>
                 <div class="globe-help">拖动旋转地球 · 滚轮缩放 · 点击球面选取模拟地点</div>
-                <div class="flow-panel ui-layer">
-                    <div class="flow-panel-header"><span><i class="fas fa-water"></i> 全球海流动态演示</span><label class="flow-toggle"><input id="flow-switch" type="checkbox" checked onchange="OceanFlow.setEnabled(this.checked)"><span>开启</span></label></div>
-                    <div class="flow-status" id="flow-status">正在加载全球海陆掩膜…</div>
-                    <div class="flow-toolbar"><label for="flow-density">流线密度</label><select id="flow-density" onchange="OceanFlow.setDensity(this.value)"><option value="low">稀疏</option><option value="medium">标准</option><option value="high" selected>较密</option></select><button id="flow-play" onclick="OceanFlow.togglePlay()"><i class="fas fa-pause"></i> 暂停动画</button></div>
-                    <div class="flow-scale"><span class="flow-gradient"></span><span>概念性流向与相对强弱（非实测流速）</span></div>
-                    <div class="flow-foot"><span id="flow-count">0 条演示流线</span><span>演示数据 · 非预报</span></div>
-                </div>
                 <div class="ui-layer location-card" id="location-card" style="display:none">
                     <div class="loc-brow"><i class="fas fa-map-marker-alt"></i> 当前评价地点</div>
                     <div id="loc-name" class="loc-title"></div>
@@ -329,11 +342,6 @@
                     </div>
                 </div>
 
-                <div class="geolayers ui-layer">
-                    <label><input id="facilities-switch" type="checkbox" checked onchange="WaterDashboard.showFacilities(this.checked)"> 设施点位 <small id="facility-layer-count">13 个示意点</small></label>
-                    <label><input id="borders-switch" type="checkbox" checked onchange="WaterDashboard.showBorders(this.checked)"> 国界线</label>
-                    <div class="layer-footnote">示意点位非权威坐标，仅秦山配置了专用模式链</div>
-                </div>
                 <div class="map-tools-right">
                     <button class="tool-btn" onclick="toggleBasemapPanel()" title="图层管理">
                         <i class="fas fa-layer-group"></i>
@@ -349,9 +357,31 @@
                         <div class="layer-item active" onclick="switchLayer('satellite', this)">
                             <span class="layer-name">卫星地球</span><div class="toggle-switch"></div>
                         </div>
+
+                        <div class="mini-layer-options">
+                            <label class="mini-layer-checkbox"><input id="borders-switch" type="checkbox" checked onchange="WaterDashboard.showBorders(this.checked)"> 显示国界线</label>
+                            <label for="flow-density" class="mini-setting-label">海流线密度</label>
+                            <select id="flow-density" onchange="OceanFlow.setDensity(this.value)">
+                                <option value="low">稀疏</option>
+                                <option value="medium">标准</option>
+                                <option value="high" selected>较密</option>
+                            </select>
+                            <button class="mini-play-button" id="flow-play" type="button" onclick="OceanFlow.togglePlay()"><i class="fas fa-pause"></i> 暂停动画</button>
+                            <div class="mini-layer-notice">海流为视觉演示数据，不代表实测或预报结果。</div>
+                        </div>
                     </div>
                     <button class="tool-btn" onclick="resetGlobe()" title="复位地球"><i class="fas fa-globe-asia"></i></button>
                     <button class="tool-btn" onclick="openTaskModal(false)" title="创建任务"><i class="fas fa-plus" style="color:var(--primary)"></i></button>
+
+                    <div class="compact-layer-controls" role="group" aria-label="地球图层开关">
+                        <button class="compact-layer-btn is-on" id="flow-mini-toggle" type="button" aria-pressed="true" title="切换动态海流展示（演示数据）" onclick="toggleCompactLayer('flow')">
+                            <i class="fas fa-water"></i><span>海流</span><span class="compact-layer-light"></span>
+                        </button>
+                        <button class="compact-layer-btn is-on" id="facility-mini-toggle" type="button" aria-pressed="true" title="切换核设施展示点位" onclick="toggleCompactLayer('facility')">
+                            <i class="fas fa-map-marker-alt"></i><span>厂址</span><span class="compact-layer-light"></span>
+                        </button>
+                    </div>
+
                 </div>
 
                 <div class="ui-layer home-dock">
@@ -361,12 +391,6 @@
                     <button class="dock-btn" onclick="switchView('data')"><span class="dock-icon"><i class="fas fa-database"></i></span><span class="dock-label">数据管理</span></button>
                 </div>
 
-                <div class="geohud ui-layer">
-                    <span><i class="fas fa-globe-asia"></i> <span id="globe-load-state">三维地球 · 边界加载中</span></span>
-                    <span class="geohud-sep"></span><span>视角 <b id="camera-lat">28.00°N</b> / <b id="camera-lng">110.00°E</b></span>
-                    <span class="geohud-sep"></span><span>高度 <b id="camera-alt">2.20 R</b></span>
-                    <span class="geohud-sep"></span><span>鼠标 <b id="cursor-location">移至球面查看位置</b></span>
-                </div>
             </div>
         </div>
 
@@ -514,6 +538,16 @@
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
+    window.toggleCompactLayer=function(kind){
+      const facility=kind==='facility';
+      const button=document.getElementById(facility?'facility-mini-toggle':'flow-mini-toggle');
+      if(!button)return;
+      const on=button.getAttribute('aria-pressed')!=='true';
+      button.setAttribute('aria-pressed',String(on));
+      button.classList.toggle('is-on',on);
+      if(facility){if(window.WaterDashboard)WaterDashboard.showFacilities(on);}
+      else{if(window.OceanFlow)OceanFlow.setEnabled(on);}
+    };
     const SITES=[{id:'qinshan',name:'秦山核电站',lat:30.435,lng:120.941,chains:['fine','fast']}];
     const MODES={
       fine:{name:'近海精细计算模式',desc:'秦山厂址已配置的近海精细模式',icon:'fa-project-diagram'},

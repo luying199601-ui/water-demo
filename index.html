@@ -299,6 +299,12 @@
         .home-dock{bottom:24px}
         @media(max-width:800px){.home-dock{bottom:18px}.compact-layer-btn{width:75px;min-height:31px;font-size:11px}.compact-layer-controls{gap:5px;margin-top:5px}}
 
+
+        /* A subtle live counter makes it easy to distinguish data generation
+           from actual WebGL visibility without reintroducing large panels. */
+        #flow-mini-toggle::after{content:attr(data-flow-count);font-size:9px;color:#9be9ff;margin-left:2px}
+        #flow-mini-toggle{width:auto;min-width:83px}
+
     </style>
 </head>
 <body>
@@ -533,9 +539,9 @@
       }
     </script>
     <script src="https://unpkg.com/globe.gl"></script>
-    <script src="flow-overlay.js?v=20261022-flow3"></script>
-    <script src="land-geography.js?v=1"></script>
-    <script src="dashboard-ui.js"></script>
+    <script src="flow-overlay.js?v=20261022-flow4"></script>
+    <script src="land-geography.js?v=2"></script>
+    <script src="dashboard-ui.js?v=20261022-local"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';

@@ -305,6 +305,50 @@
         #flow-mini-toggle::after{content:attr(data-flow-count);font-size:9px;color:#9be9ff;margin-left:2px}
         #flow-mini-toggle{width:auto;min-width:83px}
 
+
+        /* Map pick-up card inspired by the supplied site-info reference.
+           Keep only name, geographic coordinates and the task-mode entry. */
+        .location-card{
+            top:118px;left:24px;right:auto;bottom:auto;
+            width:min(345px,calc(100vw - 60px));
+            padding:24px 22px 22px;
+            box-sizing:border-box;
+            border:1px solid rgba(102,169,210,.42);
+            border-radius:13px;
+            background:linear-gradient(145deg,rgba(23,45,65,.95),rgba(21,30,48,.95));
+            backdrop-filter:blur(18px);
+            box-shadow:0 17px 44px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.05);
+            animation:locationCardEnter .22s ease-out;
+            z-index:2050;
+        }
+        @keyframes locationCardEnter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+        .loc-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#a3b6c7;font-size:16px}
+        .loc-close:hover{background:rgba(255,255,255,.1);color:#fff}
+        .loc-brow{color:#80b0c9;font-size:12px;letter-spacing:.7px;margin-bottom:14px}
+        .loc-brow i{color:#3ed5ee;margin-right:5px}
+        .loc-title{font-size:21px;font-weight:700;line-height:1.45;color:#fff;margin:0 30px 12px 0;overflow-wrap:anywhere}
+        .loc-coords{font-size:13px;color:#a9c8d9;margin-top:0;line-height:1.7;letter-spacing:.2px;font-variant-numeric:tabular-nums}
+        .loc-divider{height:1px;background:rgba(124,165,199,.22);margin:20px 0 17px}
+        .loc-mode-label{font-size:13px;color:#a9bbcf;margin-bottom:11px;font-weight:600}
+        .loc-select-button{
+            width:100%;display:flex;align-items:center;justify-content:space-between;
+            padding:13px 15px;background:linear-gradient(100deg,#3984ec,#327acb);
+            border:1px solid #478fe6;border-radius:7px;color:#fff;font-size:14px;
+            font-weight:600;box-shadow:0 5px 16px rgba(12,89,185,.2)
+        }
+        .loc-select-button i{margin-right:7px}
+        .loc-select-button:hover{background:linear-gradient(100deg,#4c96fb,#3788e4);transform:translateY(-1px)}
+        /* Make the mode selector unmistakable as a separate task-choice step. */
+        #step-2 .chain-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+        #step-2 .chain-card{min-height:106px;border-radius:10px;border:1px solid #35526d;padding:17px;background:#152638;transition:.17s}
+        #step-2 .chain-card.selected{border-color:#36cdea;background:rgba(28,119,163,.18);box-shadow:0 0 0 1px rgba(32,188,228,.15)}
+        #step-2 .chain-card strong{font-size:15px}
+        @media(max-width:800px){
+            .location-card{left:10px;right:auto;top:145px;bottom:auto;width:min(325px,calc(100vw - 20px));padding:18px}
+            .loc-title{font-size:18px}
+            #step-2 .chain-grid{grid-template-columns:1fr}
+        }
+
     </style>
 </head>
 <body>
@@ -324,13 +368,18 @@
             <div id="map-container">
                 <div id="map"></div>
                 <div class="globe-help">拖动旋转地球 · 滚轮缩放 · 点击球面选取模拟地点</div>
-                <div class="ui-layer location-card" id="location-card" style="display:none">
-                    <div class="loc-brow"><i class="fas fa-map-marker-alt"></i> 当前评价地点</div>
-                    <div id="loc-name" class="loc-title"></div>
+                <aside class="ui-layer location-card" id="location-card" role="dialog" aria-label="模拟地点信息" style="display:none">
+                    <button class="loc-close" type="button" onclick="closeLocationCard()" aria-label="关闭地点信息"><i class="fas fa-times"></i></button>
+                    <div class="loc-brow"><i class="fas fa-map-marker-alt"></i> 模拟地点</div>
+                    <h3 id="loc-name" class="loc-title"></h3>
                     <div id="loc-coordinates" class="loc-coords"></div>
-                    <div id="loc-class" class="loc-class"></div>
-                    <button class="btn-primary" onclick="openTaskModal(true)" style="width:100%;margin-top:14px">在此创建任务 →</button>
-                </div>
+                    <div class="loc-divider"></div>
+                    <div class="loc-mode-label">选择模式链创建任务</div>
+                    <button class="loc-select-button" type="button" onclick="openTaskModal(true)">
+                        <span><i class="fas fa-sitemap"></i> 选择模式链</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </aside>
                 <div id="pick-notice" class="pick-notice" style="display:none">请在地球上点击模拟地点 <button onclick="cancelPick()" aria-label="取消">×</button></div>
                 
                 <div class="ui-layer floating-brand" style="display:none">
@@ -624,18 +673,29 @@
         :landError?'识别数据加载失败，需手动指定陆海'
         :'正在读取本地全球陆海数据…';
     }
-    function refreshTerrain(){if(picked)e('loc-class').textContent=typeLabel();if(e('task-modal').style.display==='flex')renderModeOptions();}
+    function refreshTerrain(){
+      if(e('task-modal').style.display==='flex')renderModeOptions();
+    }
     function pickPoint(lat,lng,name){
       lat=Number(lat);lng=Number(lng);if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){alert('坐标无效');return;}
       const site=nearbySite(lat,lng);if(site){lat=site.lat;lng=site.lng;}
       picked={lat:lat,lng:lng,name:site?site.name:(name||'自定义点'),siteId:site?site.id:null};modeId=null;
       e('search-suggestions').style.display='none';e('search-input').value=picked.name;
-      e('location-card').style.display='block';e('loc-name').textContent=picked.name;e('loc-coordinates').textContent='纬度 '+fmt(lat)+'° · 经度 '+fmt(lng)+'°';
-      e('loc-class').textContent=typeLabel();if(earth)earth.pointOfView({lat:lat,lng:lng,altitude:1.14},950);
+      e('location-card').style.display='block';
+      e('loc-name').textContent=picked.name;
+      e('loc-coordinates').textContent='经度 '+fmt(lng)+'°  ·  纬度 '+fmt(lat)+'°';
+      if(earth)earth.pointOfView({lat:lat,lng:lng,altitude:1.14},950);
       refreshPoints();updatePreview();if(e('task-modal').style.display==='flex')renderModeOptions();
     }
     window.selectLocation=pickPoint;
-    function finishMapPick(){if(waitingForPick){waitingForPick=false;e('pick-notice').style.display='none';window.openTaskModal(true);}}
+    window.closeLocationCard=function(){e('location-card').style.display='none';};
+    function finishMapPick(){
+      if(waitingForPick){
+        waitingForPick=false;
+        e('pick-notice').style.display='none';
+        // 地图选点后先展示地点卡片；由用户点击“选择模式链”继续创建。
+      }
+    }
     window.cancelPick=function(){waitingForPick=false;e('pick-notice').style.display='none';};
     window.handleSearchInput=function(query){
       const box=e('search-suggestions');query=(query||'').trim();if(!query){box.style.display='none';return;}
@@ -661,11 +721,15 @@
       if(earth)earth.globeImageUrl(type==='dark'?'https://unpkg.com/three-globe/example/img/earth-night.jpg':'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
     };
     window.openTaskModal=function(fromMap){
-      stage=1;modeId=null;document.querySelectorAll('.form-error').forEach(function(x){x.textContent='';});
+      // 地图上已有地点时直接进入模式链选择；底部菜单仍从地点设置开始。
+      stage=fromMap&&picked?2:1;
+      modeId=null;
+      document.querySelectorAll('.form-error').forEach(function(x){x.textContent='';});
       if(!fromMap){picked=null;e('location-card').style.display='none';e('facility-select').value='';e('location-method').value='site';}
       else e('location-method').value='globe';
       e('terrain-override').value='auto';e('task-name').value=(picked?picked.name+'_':'')+'评价任务';
       window.changeLocationMethod(e('location-method').value);
+      e('location-card').style.display='none';
       e('task-modal').style.display='flex';updatePreview();updateWizard();
     };
     window.closeTaskModal=function(){e('task-modal').style.display='none';};

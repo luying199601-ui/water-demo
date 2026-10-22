@@ -22,7 +22,51 @@
     {id:"changjiang",name:"昌江核电站",lat:19.46,lng:108.90,priority:8},
     {id:"xudabao",name:"徐大堡核电站",lat:40.33,lng:120.52,priority:6}
   ];
-  const state={globe:null,pick:null,sites:[],borders:true,facilities:true,pov:{lat:28,lng:110,altitude:2.2},labelNodes:[],dataLoaded:false,mouseAt:0};
+
+  // Cartographic labels are rendered on the globe only; they are not site/model records.
+  const PLACES = [
+    {name:"中国",lat:36,lng:103,kind:"country"},
+    {name:"蒙古",lat:46.9,lng:104.9,kind:"country"},
+    {name:"俄罗斯",lat:53.5,lng:109.0,kind:"country"},
+    {name:"印度",lat:22,lng:79.2,kind:"country"},
+    {name:"巴基斯坦",lat:29,lng:69,kind:"country"},
+    {name:"哈萨克斯坦",lat:48,lng:68,kind:"country"},
+    {name:"缅甸",lat:21.7,lng:95.9,kind:"country"},
+    {name:"泰国",lat:16,lng:101,kind:"country"},
+    {name:"越南",lat:16.8,lng:106.8,kind:"country"},
+    {name:"老挝",lat:19.5,lng:102.6,kind:"country"},
+    {name:"韩国",lat:36.1,lng:128,kind:"country"},
+    {name:"日本",lat:37,lng:138.8,kind:"country"},
+    {name:"菲律宾",lat:12.9,lng:122,kind:"country"},
+    {name:"尼泊尔",lat:28.2,lng:83.6,kind:"country"},
+    {name:"北京",lat:39.9,lng:116.41,kind:"city"},
+    {name:"上海",lat:31.2,lng:121.47,kind:"city"},
+    {name:"广州",lat:23.1,lng:113.26,kind:"city"},
+    {name:"成都",lat:30.67,lng:104.06,kind:"city"},
+    {name:"重庆",lat:29.56,lng:106.55,kind:"city"},
+    {name:"武汉",lat:30.58,lng:114.3,kind:"city"},
+    {name:"西安",lat:34.27,lng:108.96,kind:"city"},
+    {name:"南京",lat:32.06,lng:118.8,kind:"city"},
+    {name:"杭州",lat:30.27,lng:120.16,kind:"city"},
+    {name:"太原",lat:37.86,lng:112.55,kind:"city"},
+    {name:"兰州",lat:36.06,lng:103.82,kind:"city"},
+    {name:"昆明",lat:25.04,lng:102.72,kind:"city"},
+    {name:"哈尔滨",lat:45.75,lng:126.64,kind:"city"},
+    {name:"沈阳",lat:41.8,lng:123.43,kind:"city"},
+    {name:"拉萨",lat:29.65,lng:91.1,kind:"city"},
+    {name:"乌鲁木齐",lat:43.83,lng:87.62,kind:"city"},
+    {name:"台北",lat:25.03,lng:121.57,kind:"city"},
+    {name:"首尔",lat:37.57,lng:126.98,kind:"city"},
+    {name:"东京",lat:35.68,lng:139.76,kind:"city"},
+    {name:"黄海",lat:35.6,lng:124.8,kind:"sea"},
+    {name:"东海",lat:27.7,lng:126.3,kind:"sea"},
+    {name:"南海",lat:15.2,lng:115.0,kind:"sea"},
+    {name:"日本海",lat:40.6,lng:134.5,kind:"sea"},
+    {name:"孟加拉湾",lat:16,lng:89.0,kind:"sea"},
+    {name:"菲律宾海",lat:18.8,lng:133.4,kind:"sea"}
+  ];
+
+  const state={globe:null,pick:null,sites:[],borders:true,facilities:true,pov:{lat:30,lng:108,altitude:1.25},labelNodes:[],geoNodes:[],dataLoaded:false,mouseAt:0};
   const $=id=>document.getElementById(id);
   function configured(id){return state.sites.some(s=>s.id===id);}
   function ensureStatus(){
@@ -31,6 +75,14 @@
   }
   function markerHTML(d){
     const node=document.createElement("div");
+    if(d.kind){
+      const geo=document.createElement("div");
+      geo.className="globe-geo-label globe-geo-"+d.kind;
+      geo.textContent=d.name;
+      geo.setAttribute("aria-hidden","true");
+      state.geoNodes.push({node:geo,d});
+      return geo;
+    }
     const isConfigured=configured(d.id);
     node.className="globe-site"+(isConfigured?" is-configured":"");
     node.dataset.id=d.id;
@@ -58,29 +110,41 @@
     return Math.acos(Math.max(-1,Math.min(1,cosine)))/p;
   }
   function visibility(){
-    const zoom=state.pov.altitude||2.2;
-    const maxAngle=zoom>2.4?65:zoom>1.5?73:zoom>.75?85:95;
-    const allowLabels=zoom<3.6;
-    const maxLabels=zoom>1.75?8:zoom>.9?11:16;
+    const zoom=state.pov.altitude||1.25;
+    const maxAngle=zoom>2.4?65:zoom>1.5?72:zoom>.7?84:89;
+    const maxLabels=zoom>2.3?9:zoom>1.7?11:15;
     let count=0;
     const ordered=state.labelNodes.slice().sort((a,b)=>b.d.priority-a.d.priority);
     const visible=new Set();
     for(const item of ordered){
       const dist=angleDistance(state.pov.lat,state.pov.lng,item.d.lat,item.d.lng);
-      if(dist<maxAngle&&count<maxLabels&&allowLabels){visible.add(item.d.id);count++;}
+      if(dist<maxAngle&&count<maxLabels){visible.add(item.d.id);count++;}
     }
     for(const item of state.labelNodes){
       item.node.classList.toggle("only-dot",!visible.has(item.d.id));
+    }
+    const canShowGeo=zoom<2.6;
+    for(const item of state.geoNodes){
+      const d=angleDistance(state.pov.lat,state.pov.lng,item.d.lat,item.d.lng);
+      // Hide city labels when too far away; nation and waterbody labels stay visible longer.
+      const allowance=item.d.kind==="city"?(zoom>1.55?42:68):maxAngle;
+      item.node.style.display=(canShowGeo&&d<allowance)?"":"none";
     }
   }
   function renderHTMLSites(){
     if(!state.globe)return;
     state.labelNodes=[];
-    if(!state.facilities){state.globe.htmlElementsData([]);return;}
+    state.geoNodes=[];
+    // Facility switch only controls facility markers; the cartographic labels remain.
+    if(!state.facilities){
+      state.globe.htmlLat("lat").htmlLng("lng").htmlAltitude(.013)
+        .htmlElement(markerHTML).htmlTransitionDuration(0).htmlElementsData(PLACES);
+      visibility();return;
+    }
     state.globe
       .htmlLat("lat").htmlLng("lng").htmlAltitude(.013)
       .htmlElement(markerHTML).htmlTransitionDuration(0)
-      .htmlElementsData(EXAMPLES);
+      .htmlElementsData(EXAMPLES.concat(PLACES));
     visibility();
   }
   function refreshPoints(selected,sites){
@@ -152,8 +216,8 @@
       .polygonGeoJsonGeometry("geometry")
       .polygonCapColor("rgba(0,27,41,0.004)")
       .polygonSideColor("rgba(0,27,41,0.004)")
-      .polygonStrokeColor("rgba(148,193,219,0.38)")
-      .polygonAltitude(.0018).polygonCapCurvatureResolution(5)
+      .polygonStrokeColor("rgba(203,205,164,0.52)")
+      .polygonAltitude(.0015).polygonCapCurvatureResolution(4)
       .polygonsTransitionDuration(0)
       .onPolygonClick((d,event,coords)=>{if(coords)choose({lat:coords.lat,lng:coords.lng,name:"地图选点"});})
       .onZoom(setCamera);

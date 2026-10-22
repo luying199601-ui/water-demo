@@ -233,6 +233,28 @@
         .flow-foot{display:flex;justify-content:space-between;color:#76a1b9;font-size:10px;margin-top:11px}
         @media(max-width:840px){.flow-panel{width:230px;bottom:100px;left:10px;padding:10px}.flow-toolbar{flex-wrap:wrap}.flow-status{font-size:10px}.flow-panel-header{font-size:12px}.globe-help{display:none}}
 
+
+        .top-shell{top:16px;left:50%;transform:translateX(-50%);width:min(1280px,calc(100% - 58px));height:64px;border:1px solid rgba(117,160,207,.34);background:rgba(16,25,43,.88);backdrop-filter:blur(16px);display:flex;align-items:center;gap:20px;padding:0 20px;border-radius:13px;box-shadow:0 14px 42px #0008;box-sizing:border-box}
+        .top-identity{display:flex;align-items:center;gap:10px;min-width:285px}
+        .brand-orbit{width:36px;height:36px;border:2px solid #128bd1;color:#46dcfc;border-radius:50%;display:grid;place-items:center}
+        .top-brand{display:flex;flex-direction:column;gap:5px;white-space:nowrap}.top-brand strong{font-size:13px;color:#dcecfb;letter-spacing:.35px}.top-brand small{font-size:8px;color:#6995b9;letter-spacing:1.5px}
+        .top-nav{display:flex;align-items:center;justify-content:center;gap:3px;flex:1;white-space:nowrap}
+        .nav-main{background:none;border:0;color:#adbdd1;padding:12px 9px;font-size:12px;border-radius:6px}.nav-main i{margin-right:5px}.nav-main.active,.nav-main:hover{color:#35c8f7;background:rgba(25,131,218,.12)}
+        .top-actions{display:flex;align-items:center;gap:10px}.top-actions button{background:transparent;border:0;color:#b9cde3;padding:8px}.top-actions button:hover{color:#4bdbff}.avatar{width:29px;height:29px;border-radius:50%;background:#53627d;display:grid;place-items:center;color:#dae8ff}
+        .home-search-bar{top:96px;width:min(490px,44vw)}.search-input-lg{background:rgba(12,24,40,.85)}
+        .map-tools-right{top:102px;right:24px}.geolayers{right:24px;top:210px;width:216px;padding:13px;background:rgba(13,28,47,.80);border:1px solid rgba(64,128,171,.33);border-radius:10px;backdrop-filter:blur(10px);box-sizing:border-box}
+        .geolayers label{display:flex;align-items:center;gap:7px;margin:6px 0;color:#c4d9eb;font-size:12px}.geolayers input{accent-color:#25caff;width:14px;height:14px}.geolayers small{margin-left:auto;font-size:10px;color:#82abc7}
+        .layer-footnote{border-top:1px solid #31516b;color:#7295b0;line-height:1.6;font-size:10px;margin-top:11px;padding-top:8px}
+        .globe-site{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;transform:translate(-8px,-50%);filter:drop-shadow(0 1px 4px #041320)}
+        .globe-site-dot{height:11px;width:11px;min-width:11px;border-radius:50%;background:#268cff;border:1.5px solid #e2f8ff;box-shadow:0 0 8px #1aa3ff}
+        .globe-site.is-configured .globe-site-dot{background:#33e1d0;box-shadow:0 0 11px #2ef2ea}
+        .globe-site-label{background:rgba(6,23,39,.40);border-radius:3px;color:#f4fbff;padding:3px 4px;font-size:11px;line-height:1.25;text-shadow:0 1px 2px #020812}
+        .globe-site.only-dot .globe-site-label{display:none}.globe-site:hover .globe-site-label{display:inline}
+        .geohud{display:flex;align-items:center;gap:15px;bottom:11px;left:50%;transform:translateX(-50%);color:#94b8d2;background:rgba(12,25,47,.87);border:1px solid #31516f;border-radius:8px;padding:10px 17px;font-size:10px;white-space:nowrap;box-shadow:0 10px 22px #0007}
+        .geohud b{color:#5dbfff;font-weight:600}.geohud-sep{height:14px;width:1px;background:#304e66}
+        .globe-help{bottom:20px;font-size:11px}.home-dock{bottom:54px}
+        @media(max-width:1120px){.top-shell{gap:7px;padding:0 10px}.top-identity{min-width:215px}.top-brand strong{font-size:11px}.top-brand small{font-size:7px}.nav-main{padding:10px 5px;font-size:11px}.geohud{gap:8px;padding:8px}}
+        @media(max-width:800px){.top-shell{width:calc(100% - 14px);left:7px;transform:none;top:6px;height:58px}.top-identity{min-width:40px}.top-brand{display:none}.top-nav{overflow-x:auto;justify-content:flex-start}.nav-main{font-size:10px;padding:8px 4px}.nav-main i{display:none}.top-actions{gap:0}.top-actions button{padding:4px}.home-search-bar{top:76px;width:min(90vw,440px)}.map-tools-right{top:132px;right:9px}.geolayers{top:238px;right:9px;width:170px;padding:9px}.geohud{bottom:6px;max-width:calc(100% - 15px);overflow:hidden}.geohud span:nth-last-child(-n+2){display:none}.home-dock{bottom:51px}.flow-panel{bottom:105px}.location-card{bottom:150px}}
     </style>
 </head>
 <body>
@@ -268,7 +290,18 @@
                 </div>
                 <div id="pick-notice" class="pick-notice" style="display:none">请在地球上点击模拟地点 <button onclick="cancelPick()" aria-label="取消">×</button></div>
                 
-                <div class="ui-layer floating-brand">
+                <div class="top-shell ui-layer">
+                    <div class="top-identity"><span class="brand-orbit"><i class="fas fa-water"></i></span><span class="top-brand"><strong>水环境后果评价与决策支持系统</strong><small>WATER ENVIRONMENT · DECISION SUPPORT</small></span></div>
+                    <nav class="top-nav" aria-label="系统主导航">
+                       <button onclick="switchView('map')" class="nav-main active" data-view="map"><i class="fas fa-home"></i> 首页</button>
+                       <button onclick="openTaskModal(false)" class="nav-main"><i class="fas fa-bolt"></i> 创建任务</button>
+                       <button onclick="switchView('task')" class="nav-main" data-view="task"><i class="fas fa-history"></i> 历史任务</button>
+                       <button onclick="switchView('cases')" class="nav-main" data-view="cases"><i class="fas fa-share-alt"></i> 案例库</button>
+                       <button onclick="switchView('data')" class="nav-main" data-view="data"><i class="fas fa-database"></i> 数据管理</button>
+                    </nav>
+                    <div class="top-actions"><button onclick="WaterDashboard.toggleFullscreen()" title="全屏"><i class="fas fa-expand"></i></button><button onclick="switchLayer('dark', document.querySelector('.layer-item'))" title="夜间地球"><i class="fas fa-moon"></i></button><span class="avatar" title="演示账户"><i class="fas fa-user"></i></span></div>
+                </div>
+                <div class="ui-layer floating-brand" style="display:none">
                     <i class="fas fa-atom fa-spin brand-logo"></i>
                     <span class="brand-text">水环境后果评价与决策支持系统</span>
                 </div>
@@ -283,6 +316,11 @@
                     </div>
                 </div>
 
+                <div class="geolayers ui-layer">
+                    <label><input id="facilities-switch" type="checkbox" checked onchange="WaterDashboard.showFacilities(this.checked)"> 设施点位 <small id="facility-layer-count">13 个示意点</small></label>
+                    <label><input id="borders-switch" type="checkbox" checked onchange="WaterDashboard.showBorders(this.checked)"> 国界线</label>
+                    <div class="layer-footnote">示意点位非权威坐标，仅秦山配置了专用模式链</div>
+                </div>
                 <div class="map-tools-right">
                     <button class="tool-btn" onclick="toggleBasemapPanel()" title="图层管理">
                         <i class="fas fa-layer-group"></i>
@@ -310,6 +348,12 @@
                     <button class="dock-btn" onclick="switchView('data')"><span class="dock-icon"><i class="fas fa-database"></i></span><span class="dock-label">数据管理</span></button>
                 </div>
 
+                <div class="geohud ui-layer">
+                    <span><i class="fas fa-globe-asia"></i> <span id="globe-load-state">三维地球 · 边界加载中</span></span>
+                    <span class="geohud-sep"></span><span>视角 <b id="camera-lat">28.00°N</b> / <b id="camera-lng">110.00°E</b></span>
+                    <span class="geohud-sep"></span><span>高度 <b id="camera-alt">2.20 R</b></span>
+                    <span class="geohud-sep"></span><span>鼠标 <b id="cursor-location">移至球面查看位置</b></span>
+                </div>
             </div>
         </div>
 
@@ -453,6 +497,7 @@
     </script>
     <script src="https://unpkg.com/globe.gl"></script>
     <script src="flow-overlay.js"></script>
+    <script src="dashboard-ui.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -487,13 +532,14 @@
         .onPointClick(function(p){pickPoint(p.lat,p.lng,p.name);finishMapPick();});
       earth.pointOfView({lat:28,lng:110,altitude:2.2},0);updateEarthSize();refreshPoints();
       if(window.OceanFlow)OceanFlow.attach(earth);
+      if(window.WaterDashboard)WaterDashboard.attach(earth,{sites:SITES,pick:pickPoint,selected:picked});
       window.addEventListener('resize',updateEarthSize);
       e('search-input').addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();triggerSearch();}});
       fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json').then(function(r){if(!r.ok)throw Error('land data');return r.json();}).then(function(t){if(typeof topojson==='undefined')throw Error('topojson');land=topojson.feature(t,t.objects.land).geometry;landError=false;refreshTerrain();if(window.OceanFlow)OceanFlow.setLand(land);}).catch(function(err){landError=true;console.warn('陆海边界识别暂不可用',err);refreshTerrain();if(window.OceanFlow)OceanFlow.landFailed();});
     };
     function updateEarthSize(){if(earth)earth.width(e('map').clientWidth).height(e('map').clientHeight);}
     window.resetGlobe=function(){if(earth)earth.pointOfView({lat:28,lng:110,altitude:2.2},900);};
-    function refreshPoints(){if(!earth)return;const pts=SITES.map(function(s){return {name:s.name,lat:s.lat,lng:s.lng};});if(picked)pts.push({name:picked.name,lat:picked.lat,lng:picked.lng,selected:true});earth.pointsData(pts);}
+    function refreshPoints(){if(!earth)return;if(window.WaterDashboard)WaterDashboard.refreshPoints(picked,SITES);else earth.pointsData(picked?[{name:picked.name,lat:picked.lat,lng:picked.lng,selected:true}]:[]);}
     function inRing(ring,lat,lng){let yes=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>lat)!==(b[1]>lat)&&lng<(b[0]-a[0])*(lat-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
     function inPolygon(poly,lat,lng){if(!inRing(poly[0],lat,lng))return false;for(let i=1;i<poly.length;i++)if(inRing(poly[i],lat,lng))return false;return true;}
     function autoType(){if(!picked||!land)return null;const polys=land.type==='MultiPolygon'?land.coordinates:[land.coordinates];for(const poly of polys)if(inPolygon(poly,picked.lat,picked.lng))return 'inland';return 'ocean';}
@@ -527,6 +573,7 @@
       finally{btn.innerHTML='<i class="fas fa-search"></i>';}
     };
     window.switchView=function(name){
+      document.querySelectorAll('.nav-main[data-view]').forEach(function(x){x.classList.toggle('active',x.dataset.view===name);});
       document.querySelectorAll('.content-wrapper').forEach(function(x){x.classList.remove('active');});
       e('view-'+name).classList.add('active');if(name==='map')setTimeout(updateEarthSize,80);if(name==='task')renderTaskList();
     };

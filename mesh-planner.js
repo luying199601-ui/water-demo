@@ -54,7 +54,7 @@ function activate(p,mode){
  clear();S.point=p?{...p}:null;S.mode=mode;S.type=['fine','fast'].includes(mode)?'preset':['riverSimple','riverFast'].includes(mode)?'river':['oceanEuler','oceanLagrange'].includes(mode)?'ocean':null;
  if(S.type==='preset'&&p){S.region=defaultRect(p,18);S.step=1.5;S.source='illustrative';S.status='厂址网格仅为示意：未接入厂址实际网格文件。';calculate();}
  else if(S.type==='ocean'){S.step=2;S.status='点击“框选矩形”并在地球上拖动鼠标确定模拟区域。';}
- else if(S.type==='river'){S.status='框选河段，系统将尝试读取 OSM 河网中心线并生成河道导向网格预览。';}
+ else if(S.type==='river'){S.step=400;S.width=160;S.cross=4;S.status='框选河段，系统将尝试读取 OSM 河网中心线并生成河道导向网格预览。';}
  refresh();return status();
 }
 function drawBegin(){if(!S.hit)return;S.draw=true;S.status='在地球上按住鼠标拖动绘制矩形';S.hit.style.pointerEvents='auto';refresh();}
@@ -81,8 +81,10 @@ function meshRiver(){
      last=row;sections++;
    }
  }
- S.riverLines=lines;S.gridCount=cells;S.riverCount=sections;S.loading=false;S.source='osm';
- S.status=sections?'已基于 OSM 河网中心线生成网格预览；河宽为用户给定，未考虑实际河道岸线/水深。':'框选范围内未找到可用于离散的河道中心线。';
+ S.riverLines=lines;S.gridCount=cells;S.riverCount=sections;S.loading=false;S.source=S.source==='imported'?'imported':'osm';
+ S.status=sections
+   ?'已根据'+(S.source==='imported'?'导入的河网':'OSM 河网')+'中心线生成网格预览；河宽由用户设置，未考虑真实河道岸线和水深。'
+   :'框选范围内未找到可用于离散的河道中心线。';
  refresh();
 }
 async function getRivers(){
@@ -101,6 +103,24 @@ async function getRivers(){
  }catch(error){if(req!==S.version)return;S.loading=false;S.status='河网查询失败或超时。请缩小范围后重试（外部 Overpass 服务可能不稳定）。';refresh();}
  finally{clearTimeout(timeout);}
 }
+function importRiverGeoJSON(json){
+ if(S.type!=='river'||!S.region)return {ok:false,error:'请先选择河流模式并确定模拟区域'};
+ const features=json&&json.type==='FeatureCollection'?json.features:[json];
+ const rows=[];
+ for(const feature of features){
+   const g=feature&&feature.type==='Feature'?feature.geometry:feature;
+   if(!g)continue;
+   const chains=g.type==='LineString'?[g.coordinates]:g.type==='MultiLineString'?g.coordinates:[];
+   for(const chain of chains){
+     if(!Array.isArray(chain)||chain.length<2)continue;
+     const way=chain.map(p=>({lat:Number(p[1]),lng:Number(p[0])})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+     if(way.length>=2)rows.push(way);
+   }
+ }
+ if(!rows.length)return {ok:false,error:'GeoJSON 文件没有 LineString 或 MultiLineString 河道中心线'};
+ ++S.version;S.rivers=rows;S.source='imported';meshRiver();
+ return {ok:true,ways:rows.length};
+}
 function onchange(fn){S.onchange=fn;}
-global.MeshPlanner={attach,activate,drawBegin,cancel,initial,resolution,riverParams,getRivers,clear,paint,status,onchange};
+global.MeshPlanner={attach,activate,drawBegin,cancel,initial,resolution,riverParams,getRivers,importRiverGeoJSON,clear,paint,status,onchange};
 })(window);

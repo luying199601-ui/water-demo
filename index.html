@@ -255,6 +255,19 @@
         .globe-help{bottom:20px;font-size:11px}.home-dock{bottom:54px}
         @media(max-width:1120px){.top-shell{gap:7px;padding:0 10px}.top-identity{min-width:215px}.top-brand strong{font-size:11px}.top-brand small{font-size:7px}.nav-main{padding:10px 5px;font-size:11px}.geohud{gap:8px;padding:8px}}
         @media(max-width:800px){.top-shell{width:calc(100% - 14px);left:7px;transform:none;top:6px;height:58px}.top-identity{min-width:40px}.top-brand{display:none}.top-nav{overflow-x:auto;justify-content:flex-start}.nav-main{font-size:10px;padding:8px 4px}.nav-main i{display:none}.top-actions{gap:0}.top-actions button{padding:4px}.home-search-bar{top:76px;width:min(90vw,440px)}.map-tools-right{top:132px;right:9px}.geolayers{top:238px;right:9px;width:170px;padding:9px}.geohud{bottom:6px;max-width:calc(100% - 15px);overflow:hidden}.geohud span:nth-last-child(-n+2){display:none}.home-dock{bottom:51px}.flow-panel{bottom:105px}.location-card{bottom:150px}}
+
+        /* Satellite-globe & facility marker style only. Keep navigation and search untouched. */
+        #map{background:#070b14}
+        .globe-site{gap:5px;filter:drop-shadow(0 1px 2px #010711);transform:translate(-7px,-50%)}
+        .globe-site-dot{width:12px;height:12px;min-width:12px;box-sizing:border-box;border:1.5px solid #d5ecff;background:#207fec;box-shadow:0 0 0 1px rgba(11,51,102,.8),0 0 7px rgba(21,136,255,.85)}
+        .globe-site.is-configured .globe-site-dot{background:#208aff;box-shadow:0 0 0 1px rgba(11,51,102,.8),0 0 10px rgba(28,151,255,.9)}
+        .globe-site-label{background:none;padding:0 2px;color:#fff;font-size:11px;font-weight:700;line-height:1.25;text-shadow:-1px -1px 1px #06101b,1px -1px 1px #06101b,-1px 1px 1px #06101b,1px 1px 1px #06101b,0 2px 3px #000}
+        .globe-geo-label{pointer-events:none;white-space:nowrap;transform:translate(-50%,-50%);text-shadow:-1px -1px 2px #09131f,1px 1px 2px #09131f,0 0 4px #000}
+        .globe-geo-country{color:#e6e2bf;font-size:14px;font-weight:600;letter-spacing:2px;opacity:.82}
+        .globe-geo-city{color:#f0ece0;font-size:10px;font-weight:500;opacity:.82}
+        .globe-geo-sea{color:#91b3df;font-size:12px;letter-spacing:2px;opacity:.85}
+        @media(max-width:800px){.globe-site-label{font-size:10px}.globe-geo-country{font-size:12px}.globe-geo-city{font-size:9px}}
+
     </style>
 </head>
 <body>
@@ -277,7 +290,7 @@
                 <div class="flow-panel ui-layer">
                     <div class="flow-panel-header"><span><i class="fas fa-water"></i> 全球海流动态演示</span><label class="flow-toggle"><input id="flow-switch" type="checkbox" checked onchange="OceanFlow.setEnabled(this.checked)"><span>开启</span></label></div>
                     <div class="flow-status" id="flow-status">正在加载全球海陆掩膜…</div>
-                    <div class="flow-toolbar"><label for="flow-density">流线密度</label><select id="flow-density" onchange="OceanFlow.setDensity(this.value)"><option value="low">稀疏</option><option value="medium" selected>标准</option><option value="high">较密</option></select><button id="flow-play" onclick="OceanFlow.togglePlay()"><i class="fas fa-pause"></i> 暂停动画</button></div>
+                    <div class="flow-toolbar"><label for="flow-density">流线密度</label><select id="flow-density" onchange="OceanFlow.setDensity(this.value)"><option value="low">稀疏</option><option value="medium">标准</option><option value="high" selected>较密</option></select><button id="flow-play" onclick="OceanFlow.togglePlay()"><i class="fas fa-pause"></i> 暂停动画</button></div>
                     <div class="flow-scale"><span class="flow-gradient"></span><span>概念性流向与相对强弱（非实测流速）</span></div>
                     <div class="flow-foot"><span id="flow-count">0 条演示流线</span><span>演示数据 · 非预报</span></div>
                 </div>
@@ -526,11 +539,11 @@
         .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
         .backgroundColor('#020916').backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png').showAtmosphere(true).atmosphereColor('#00c9ff').atmosphereAltitude(.13)
         .pointLat('lat').pointLng('lng').pointAltitude(function(d){return d.selected?.035:.02;})
-        .pointRadius(function(d){return d.selected?.42:.27;}).pointColor(function(d){return d.selected?'#fff2a0':'#17dfe8';})
+        .pointRadius(function(d){return d.selected?.31:.19;}).pointColor(function(d){return d.selected?'#b3eeff':'#268cff';})
         .pointLabel(function(d){return safe(d.name);})
         .onGlobeClick(function(p){pickPoint(p.lat,p.lng,'地图选点');finishMapPick();})
         .onPointClick(function(p){pickPoint(p.lat,p.lng,p.name);finishMapPick();});
-      earth.pointOfView({lat:28,lng:110,altitude:2.2},0);updateEarthSize();refreshPoints();
+      earth.pointOfView({lat:31,lng:108,altitude:1.22},0);updateEarthSize();refreshPoints();
       if(window.OceanFlow)OceanFlow.attach(earth);
       if(window.WaterDashboard)WaterDashboard.attach(earth,{sites:SITES,pick:pickPoint,selected:picked});
       window.addEventListener('resize',updateEarthSize);
@@ -538,7 +551,7 @@
       fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json').then(function(r){if(!r.ok)throw Error('land data');return r.json();}).then(function(t){if(typeof topojson==='undefined')throw Error('topojson');land=topojson.feature(t,t.objects.land).geometry;landError=false;refreshTerrain();if(window.OceanFlow)OceanFlow.setLand(land);}).catch(function(err){landError=true;console.warn('陆海边界识别暂不可用',err);refreshTerrain();if(window.OceanFlow)OceanFlow.landFailed();});
     };
     function updateEarthSize(){if(earth)earth.width(e('map').clientWidth).height(e('map').clientHeight);}
-    window.resetGlobe=function(){if(earth)earth.pointOfView({lat:28,lng:110,altitude:2.2},900);};
+    window.resetGlobe=function(){if(earth)earth.pointOfView({lat:31,lng:108,altitude:1.22},900);};
     function refreshPoints(){if(!earth)return;if(window.WaterDashboard)WaterDashboard.refreshPoints(picked,SITES);else earth.pointsData(picked?[{name:picked.name,lat:picked.lat,lng:picked.lng,selected:true}]:[]);}
     function inRing(ring,lat,lng){let yes=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>lat)!==(b[1]>lat)&&lng<(b[0]-a[0])*(lat-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
     function inPolygon(poly,lat,lng){if(!inRing(poly[0],lat,lng))return false;for(let i=1;i<poly.length;i++)if(inRing(poly[i],lat,lng))return false;return true;}

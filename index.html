@@ -338,6 +338,19 @@
         }
         .loc-select-button i{margin-right:7px}
         .loc-select-button:hover{background:linear-gradient(100deg,#4c96fb,#3788e4);transform:translateY(-1px)}
+
+        /* Immediately actionable model-chain buttons in the location card. */
+        .loc-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+        .loc-mode-button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:65px;padding:11px 10px;border-radius:8px;border:1px solid rgba(129,198,240,.35);background:linear-gradient(125deg,#2264bc,#307bd9);color:white;font-size:13px;font-weight:600;line-height:1.45;cursor:pointer;transition:background .15s,transform .15s;box-shadow:0 4px 12px rgba(5,31,84,.18)}
+        .loc-mode-button span{min-width:0;overflow-wrap:anywhere}
+        .loc-mode-button i:first-child{font-size:16px;flex-shrink:0}
+        .loc-mode-button.loc-mode-1{background:linear-gradient(125deg,#098f9e,#08b3bd);border-color:rgba(64,210,221,.6)}
+        .loc-mode-button:hover{filter:brightness(1.13);transform:translateY(-2px)}
+        .loc-mode-arrow{font-size:10px;opacity:.83;flex-shrink:0}
+        .loc-mode-wait{grid-column:1/-1;color:#bad2e2;font-size:12px;line-height:1.75;padding:10px 0}
+        .loc-mode-manual{display:block;margin-top:7px;border:1px solid #447f9e;border-radius:5px;background:#205379;color:white;padding:8px 12px;font-size:12px;cursor:pointer}
+        @media(max-width:420px){.loc-mode-grid{gap:7px}.loc-mode-button{font-size:12px;min-height:62px;padding:9px 7px}}
+
         /* Make the mode selector unmistakable as a separate task-choice step. */
         #step-2 .chain-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
         #step-2 .chain-card{min-height:106px;border-radius:10px;border:1px solid #35526d;padding:17px;background:#152638;transition:.17s}
@@ -375,10 +388,7 @@
                     <div id="loc-coordinates" class="loc-coords"></div>
                     <div class="loc-divider"></div>
                     <div class="loc-mode-label">选择模式链创建任务</div>
-                    <button class="loc-select-button" type="button" onclick="openTaskModal(true)">
-                        <span><i class="fas fa-sitemap"></i> 选择模式链</span>
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
+                    <div class="loc-mode-grid" id="loc-mode-grid" aria-label="当前地点可用模式链"></div>
                 </aside>
                 <div id="pick-notice" class="pick-notice" style="display:none">请在地球上点击模拟地点 <button onclick="cancelPick()" aria-label="取消">×</button></div>
                 
@@ -674,8 +684,44 @@
         :'正在读取本地全球陆海数据…';
     }
     function refreshTerrain(){
+      if(picked&&e('location-card').style.display==='block')renderLocationModes();
       if(e('task-modal').style.display==='flex')renderModeOptions();
     }
+    function availableModes(override='auto'){
+      if(!picked)return [];
+      const site=getSite();
+      if(site)return site.chains.slice();
+      const kind=override==='auto'?autoType():override;
+      if(kind==='inland')return ['riverSimple','riverFast'];
+      if(kind==='ocean')return ['oceanEuler','oceanLagrange'];
+      return [];
+    }
+    function renderLocationModes(){
+      const box=e('loc-mode-grid');
+      if(!box)return;
+      const modes=availableModes();
+      if(!modes.length){
+        box.innerHTML=landError
+          ? '<div class="loc-mode-wait">暂无法判断陆海类型。<button type="button" class="loc-mode-manual">手动指定模式链</button></div>'
+          : '<div class="loc-mode-wait"><i class="fas fa-circle-notch fa-spin"></i> 正在识别当前位置的陆海类型…</div>';
+        const manual=box.querySelector('.loc-mode-manual');
+        if(manual)manual.addEventListener('click',()=>openTaskModal(true));
+        return;
+      }
+      box.innerHTML=modes.map(function(id,i){
+        const mode=MODES[id];
+        return '<button type="button" class="loc-mode-button loc-mode-'+i+'" data-chain="'+id+'">'
+          +'<i class="fas '+mode.icon+'"></i><span>'+safe(mode.name)+'</span>'
+          +'<i class="fas fa-arrow-right loc-mode-arrow"></i></button>';
+      }).join('');
+      box.querySelectorAll('[data-chain]').forEach(function(btn){
+        btn.addEventListener('click',()=>window.startTaskWithMode(btn.dataset.chain));
+      });
+    }
+    window.startTaskWithMode=function(id){
+      if(!picked||!availableModes().includes(id))return;
+      window.openTaskModal(true,id);
+    };
     function pickPoint(lat,lng,name){
       lat=Number(lat);lng=Number(lng);if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){alert('坐标无效');return;}
       const site=nearbySite(lat,lng);if(site){lat=site.lat;lng=site.lng;}
@@ -684,6 +730,7 @@
       e('location-card').style.display='block';
       e('loc-name').textContent=picked.name;
       e('loc-coordinates').textContent='经度 '+fmt(lng)+'°  ·  纬度 '+fmt(lat)+'°';
+      renderLocationModes();
       if(earth)earth.pointOfView({lat:lat,lng:lng,altitude:1.14},950);
       refreshPoints();updatePreview();if(e('task-modal').style.display==='flex')renderModeOptions();
     }
@@ -693,7 +740,7 @@
       if(waitingForPick){
         waitingForPick=false;
         e('pick-notice').style.display='none';
-        // 地图选点后先展示地点卡片；由用户点击“选择模式链”继续创建。
+        // 地图选点后先展示带模式链按钮的地点卡片。
       }
     }
     window.cancelPick=function(){waitingForPick=false;e('pick-notice').style.display='none';};
@@ -720,14 +767,17 @@
       document.querySelectorAll('.layer-item').forEach(function(x){x.classList.remove('active');});el.classList.add('active');
       if(earth)earth.globeImageUrl(type==='dark'?'https://unpkg.com/three-globe/example/img/earth-night.jpg':'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
     };
-    window.openTaskModal=function(fromMap){
-      // 地图上已有地点时直接进入模式链选择；底部菜单仍从地点设置开始。
-      stage=fromMap&&picked?2:1;
-      modeId=null;
+    window.openTaskModal=function(fromMap,preselectedMode){
+      // 点击地点卡上的具体模式链，直接进入第 3 步“参数设置”。
+      // 底部“创建任务”仍从第 1 步开始，其他地图入口保留原有流程。
+      const validPreset=Boolean(fromMap&&picked&&preselectedMode&&availableModes().includes(preselectedMode));
+      stage=validPreset?3:(fromMap&&picked?2:1);
+      modeId=validPreset?preselectedMode:null;
       document.querySelectorAll('.form-error').forEach(function(x){x.textContent='';});
       if(!fromMap){picked=null;e('location-card').style.display='none';e('facility-select').value='';e('location-method').value='site';}
       else e('location-method').value='globe';
-      e('terrain-override').value='auto';e('task-name').value=(picked?picked.name+'_':'')+'评价任务';
+      e('terrain-override').value='auto';
+      e('task-name').value=(picked?picked.name+'_':'')+(validPreset?MODES[preselectedMode].name+'_':'')+'评价任务';
       window.changeLocationMethod(e('location-method').value);
       e('location-card').style.display='none';
       e('task-modal').style.display='flex';updatePreview();updateWizard();
@@ -747,11 +797,14 @@
     window.pickOnGlobe=function(){waitingForPick=true;closeTaskModal();switchView('map');e('pick-notice').style.display='block';};
     function updatePreview(){const msg=picked?safe(picked.name)+'（'+fmt(picked.lat)+'°, '+fmt(picked.lng)+'°）':'尚未选择模拟地点';e('location-preview').innerHTML=msg;e('mode-location-preview').innerHTML=msg;}
     window.renderModeOptions=function(){
-      const site=getSite();e('terrain-controls').style.display=site?'none':'block';let choices=[];
-      if(site)choices=site.chains.slice();
-      else if(picked){const override=e('terrain-override').value,kind=override==='auto'?autoType():override;
-        e('terrain-text').textContent=override==='auto'?(kind==='inland'?'自动判定：内陆':kind==='ocean'?'自动判定：海洋':'尚未完成自动判断，请手动指定内陆或海洋；海岸附近亦可修正。'):'人工指定：'+(kind==='inland'?'内陆':'海洋');
-        if(kind==='inland')choices=['riverSimple','riverFast'];if(kind==='ocean')choices=['oceanEuler','oceanLagrange'];
+      const site=getSite();e('terrain-controls').style.display=site?'none':'block';
+      const override=e('terrain-override').value;
+      const choices=availableModes(override);
+      if(!site&&picked){
+        const kind=override==='auto'?autoType():override;
+        e('terrain-text').textContent=override==='auto'
+          ?(kind==='inland'?'自动判定：内陆':kind==='ocean'?'自动判定：海洋':'尚未完成自动判断，请手动指定内陆或海洋；海岸附近亦可修正。')
+          :'人工指定：'+(kind==='inland'?'内陆':'海洋');
       }
       if(!choices.includes(modeId))modeId=choices.length?choices[0]:null;
       const box=e('chain-container');

@@ -470,6 +470,7 @@
         .mesh-file-label:hover{background:#20516b;color:#fff!important}
         .mesh-file-input{display:none}
 
+        .mesh-view-button{margin-top:10px!important;border-color:#2d8d9e;color:#c1edfc;background:#1b4a67}
     </style>
 </head>
 <body>
@@ -692,6 +693,7 @@
                         <label for="mesh-river-file" class="mesh-file-label"><i class="fas fa-file-import"></i> 导入河网 GeoJSON（在线数据不可用时）</label>
                         <input type="file" id="mesh-river-file" accept=".geojson,.json,application/geo+json,application/json" onchange="meshImportRiver(this)" class="mesh-file-input">
                     </div>
+                    <button class="mesh-action full mesh-view-button" type="button" onclick="meshFocus()"><i class="fas fa-search-plus"></i> 在地图中查看模拟网格</button>
                     <div class="mesh-measures">
                        <div><small>东西长度</small><strong id="mesh-width-km">-- km</strong></div>
                        <div><small>南北长度</small><strong id="mesh-height-km">-- km</strong></div>
@@ -742,7 +744,7 @@
     <script src="flow-overlay.js?v=20261022-flow4"></script>
     <script src="land-geography.js?v=2"></script>
     <script src="dashboard-ui.js?v=20261022-marker2"></script>
-    <script src="mesh-planner.js?v=2"></script>
+    <script src="mesh-planner.js?v=3"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
     <script>
     'use strict';
@@ -1064,6 +1066,7 @@
       e('mesh-draw').innerHTML='<i class="fas fa-mouse-pointer"></i> 在地球上拖动';
     };
     window.meshUseDefault=function(){if(window.MeshPlanner)MeshPlanner.initial();};
+    window.meshFocus=function(){if(window.MeshPlanner)MeshPlanner.focus();};
     window.meshSetResolution=function(){if(window.MeshPlanner)MeshPlanner.resolution(e('mesh-resolution').value);};
     window.meshSetRiverParams=function(){
       if(window.MeshPlanner)MeshPlanner.riverParams(e('mesh-along').value,e('mesh-width').value,e('mesh-cross').value);

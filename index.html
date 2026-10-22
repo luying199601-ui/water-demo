@@ -268,6 +268,17 @@
         .globe-geo-sea{color:#91b3df;font-size:12px;letter-spacing:2px;opacity:.85}
         @media(max-width:800px){.globe-site-label{font-size:10px}.globe-geo-country{font-size:12px}.globe-geo-city{font-size:9px}}
 
+    
+        /* Single-navigation layout: no header menu, keep search and bottom dock. */
+        .home-search-bar{top:30px;left:50%;width:min(490px,calc(100vw - 170px))}
+        .map-tools-right{top:20px;right:20px}
+        .geolayers{top:129px;right:20px}
+        @media(max-width:800px){
+            .home-search-bar{top:22px;width:min(90vw,440px)}
+            .map-tools-right{top:92px;right:9px}
+            .geolayers{top:199px;right:9px}
+        }
+
     </style>
 </head>
 <body>
@@ -303,17 +314,6 @@
                 </div>
                 <div id="pick-notice" class="pick-notice" style="display:none">请在地球上点击模拟地点 <button onclick="cancelPick()" aria-label="取消">×</button></div>
                 
-                <div class="top-shell ui-layer">
-                    <div class="top-identity"><span class="brand-orbit"><i class="fas fa-water"></i></span><span class="top-brand"><strong>水环境后果评价与决策支持系统</strong><small>WATER ENVIRONMENT · DECISION SUPPORT</small></span></div>
-                    <nav class="top-nav" aria-label="系统主导航">
-                       <button onclick="switchView('map')" class="nav-main active" data-view="map"><i class="fas fa-home"></i> 首页</button>
-                       <button onclick="openTaskModal(false)" class="nav-main"><i class="fas fa-bolt"></i> 创建任务</button>
-                       <button onclick="switchView('task')" class="nav-main" data-view="task"><i class="fas fa-history"></i> 历史任务</button>
-                       <button onclick="switchView('cases')" class="nav-main" data-view="cases"><i class="fas fa-share-alt"></i> 案例库</button>
-                       <button onclick="switchView('data')" class="nav-main" data-view="data"><i class="fas fa-database"></i> 数据管理</button>
-                    </nav>
-                    <div class="top-actions"><button onclick="WaterDashboard.toggleFullscreen()" title="全屏"><i class="fas fa-expand"></i></button><button onclick="switchLayer('dark', document.querySelector('.layer-item'))" title="夜间地球"><i class="fas fa-moon"></i></button><span class="avatar" title="演示账户"><i class="fas fa-user"></i></span></div>
-                </div>
                 <div class="ui-layer floating-brand" style="display:none">
                     <i class="fas fa-atom fa-spin brand-logo"></i>
                     <span class="brand-text">水环境后果评价与决策支持系统</span>
@@ -586,7 +586,6 @@
       finally{btn.innerHTML='<i class="fas fa-search"></i>';}
     };
     window.switchView=function(name){
-      document.querySelectorAll('.nav-main[data-view]').forEach(function(x){x.classList.toggle('active',x.dataset.view===name);});
       document.querySelectorAll('.content-wrapper').forEach(function(x){x.classList.remove('active');});
       e('view-'+name).classList.add('active');if(name==='map')setTimeout(updateEarthSize,80);if(name==='task')renderTaskList();
     };

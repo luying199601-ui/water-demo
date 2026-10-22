@@ -92,27 +92,47 @@ function streamlines(){
 }
 function syncButton(){
  const btn=document.getElementById('flow-mini-toggle');
- if(btn)btn.title=state.enabled
-   ?'海流演示已开启：'+state.count+' 条球面流线（非实测）'
-   :'点击开启球面海流演示';
+ if(btn){
+   btn.title=state.enabled
+     ?'海流示意已开启：'+state.count+' 条球面流线（非实测）'
+     :'点击开启球面海流演示';
+   btn.dataset.flowCount=String(state.count);
+ }
 }
 function paint(){
  if(!state.globe)return;
  if(!state.enabled){
-   state.globe.pathsData([]);state.count=0;syncButton();return;
+   state.globe.pathsData([]);state.globe.arcsData([]);state.count=0;syncButton();return;
  }
  try{
    let paths=streamlines();
    if(paths.length<20&&state.mask){state.mask=false;paths=streamlines();}
    const data=[];
    for(const p of paths){data.push({...p,kind:'base'},{...p,kind:'spark'});}
-   state.globe.pathsData(data);state.count=paths.length;syncButton();
+   state.globe.pathsData(data);
+   const tracers=[];
+   for(let i=0;i<paths.length;i+=2){
+     const p=paths[i],points=p.points;
+     if(points.length<5)continue;
+     const end=points[points.length-1];
+     tracers.push({
+       startLat:points[0][0],startLng:points[0][1],
+       endLat:end[0],endLng:end[1],
+       speed:p.speed,phase:p.phase,time:p.time
+     });
+   }
+   state.globe.arcsData(tracers);
+   state.count=paths.length;syncButton();
    if(!paths.length)console.warn('No water paths generated for the example basins.');
  }catch(error){
    state.error=String(error);console.warn('OceanFlow mask fallback',error);
    state.mask=false;
    const paths=streamlines();
    state.globe.pathsData(paths.flatMap(p=>[{...p,kind:'base'},{...p,kind:'spark'}]));
+   state.globe.arcsData(paths.filter((_,i)=>i%2===0).map(p=>{
+      const end=p.points[p.points.length-1];
+      return {startLat:p.points[0][0],startLng:p.points[0][1],endLat:end[0],endLng:end[1],speed:p.speed,phase:p.phase,time:p.time};
+   }));
    state.count=paths.length;syncButton();
  }
 }
@@ -127,6 +147,14 @@ function attach(globe){
    .pathDashInitialGap(d=>d.kind==='base'?0:d.phase)
    .pathDashAnimateTime(d=>d.kind==='spark'&&state.playing?d.time:0)
    .pathTransitionDuration(0);
+ globe.arcColor(d=>d.speed>.75?'#ecffff':'#59d7ff')
+   .arcAltitude(.018)
+   .arcStartAltitude(.015).arcEndAltitude(.015)
+   .arcStroke(null)
+   .arcDashLength(.13).arcDashGap(.19)
+   .arcDashInitialGap(d=>d.phase)
+   .arcDashAnimateTime(d=>state.playing?d.time:0)
+   .arcsTransitionDuration(0);
  paint(); // Draw without waiting for world-atlas download.
 }
 function setLand(geometry){
@@ -139,7 +167,10 @@ function setEnabled(v){state.enabled=Boolean(v);paint();}
 function setDensity(v){if(!(v in TARGET))return;state.density=v;paint();}
 function togglePlay(){
  state.playing=!state.playing;
- if(state.globe)state.globe.pathDashAnimateTime(d=>d.kind==='spark'&&state.playing?d.time:0);
+ if(state.globe){
+   state.globe.pathDashAnimateTime(d=>d.kind==='spark'&&state.playing?d.time:0);
+   state.globe.arcDashAnimateTime(d=>state.playing?d.time:0);
+ }
  const b=document.getElementById('flow-play');
  if(b)b.innerHTML=state.playing?'<i class="fas fa-pause"></i> 暂停动画':'<i class="fas fa-play"></i> 继续播放';
 }

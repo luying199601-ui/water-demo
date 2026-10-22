@@ -68,5 +68,5 @@ function init(){
    .catch(error=>{state.error=String(error);state.promise=null;throw error;});
  return state.promise;
 }
-global.LandGeo={init,classify,toGeometry,getStatus:()=>({ready:state.ready,polygons:state.polygons.length,error:state.error})};
+global.LandGeo={init,classify,toGeometry,getFeatures:()=>state.features,getStatus:()=>({ready:state.ready,polygons:state.polygons.length,error:state.error})};
 })(window);

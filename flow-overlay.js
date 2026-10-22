@@ -6,7 +6,7 @@ const GYRES=[
   [-27,-115,43,21,-1,.57],[-27,-19,31,19,-1,.54],
   [-26,74,42,22,-1,.59],[34,161,22,18,1,.32]
 ];
-const LIMITS={low:110,medium:245,high:370};
+const LIMITS={low:180,medium:330,high:530};
 const state={globe:null,polygons:null,enabled:true,playing:true,density:'medium',ready:false,count:0};
 const rad=x=>x*Math.PI/180;
 const wrap=x=>((x+180)%360+360)%360-180;
@@ -14,8 +14,14 @@ const noise=x=>{const v=Math.sin(x*127.1+19.87)*43758.545;return v-Math.floor(v)
 function indexLand(g){
   if(!g)return [];
   return (g.type==='MultiPolygon'?g.coordinates:[g.coordinates]).filter(p=>p.length).map(rings=>{
-    const ys=rings[0].map(c=>c[1]),xs=rings[0].map(c=>c[0]);
-    return {rings,a:Math.min(...ys),b:Math.max(...ys),c:Math.min(...xs),d:Math.max(...xs)};
+    // Use bounded iteration: coastal polygons may have more vertices than
+    // JavaScript engines accept as arguments to Math.min(...vertices).
+    let a=90,b=-90,c=180,d=-180;
+    for(const coord of rings[0]){
+      if(coord[1]<a)a=coord[1];if(coord[1]>b)b=coord[1];
+      if(coord[0]<c)c=coord[0];if(coord[0]>d)d=coord[0];
+    }
+    return {rings,a,b,c,d};
   });
 }
 function inRing(r,lat,lng){
@@ -51,7 +57,7 @@ function field(lat,lng){
   return {u,v,speed:Math.hypot(u,v)};
 }
 function makeLine(lat,lng,key){
-  const points=[[lat,lng]],count=13+Math.floor(noise(key+303)*8);
+  const points=[[lat,lng]],count=12+Math.floor(noise(key+303)*10);
   for(let j=0;j<count;j++){
     const f=field(lat,lng);
     if(f.speed<.065)break;
@@ -62,10 +68,18 @@ function makeLine(lat,lng,key){
     if(!isOcean((lat+ny)/2,(lng+nx)/2)||!isOcean(ny,nx))break;
     points.push([ny,nx]);lat=ny;lng=nx;
   }
-  return points.length>=7?points:null;
+  return points.length>=5?points:null;
 }
 function lines(){
   const seeds=[];
+  // Populate the East Asian marginal seas more densely to match the startup
+  // globe view. The pattern is illustrative; it does not encode observed flow.
+  for(let lat=6;lat<=47;lat+=1.8)for(let lng=105;lng<=153;lng+=2.1){
+    const key=120000+Math.round((lat+70)*37)+Math.round((lng+180)*23);
+    const a=lat+(noise(key+101)-.5)*1.3,b=lng+(noise(key+202)-.5)*1.6;
+    if(!isOcean(a,b))continue;
+    seeds.push({a,b,key,priority:2.5+noise(key+909)});
+  }
   for(let lat=-65;lat<=65;lat+=5.5)for(let lng=-174;lng<=174;lng+=6.5){
     const key=Math.round((lat+70)*31)+Math.round((lng+180)*17);
     const a=lat+(noise(key+101)-.5)*4.5,b=lng+(noise(key+202)-.5)*5.5;
@@ -73,12 +87,12 @@ function lines(){
     seeds.push({a,b,key,priority:noise(key+909)+(.16*(Math.abs(a)<38))});
   }
   seeds.sort((a,b)=>b.priority-a.priority);
-  const out=[],limit=LIMITS[state.density],max=Math.min(seeds.length,Math.ceil(limit*3.6));
+  const out=[],limit=LIMITS[state.density],max=Math.min(seeds.length,Math.ceil(limit*5));
   for(let i=0;i<max&&out.length<limit;i++){
     const s=seeds[i],points=makeLine(s.a,s.b,s.key);
     if(!points)continue;
     const strength=Math.min(1,field(s.a,s.b).speed/1.1);
-    out.push({points,strength,id:s.key,time:6600+Math.round(noise(s.key+10)*4600),phase:noise(s.key+20)*.18});
+    out.push({points,strength,id:s.key,time:1700+Math.round(noise(s.key+10)*950),phase:noise(s.key+20)*.15});
   }
   return out;
 }
@@ -106,10 +120,10 @@ function attach(globe){
   state.globe=globe;
   globe.pathPoints('points').pathPointLat(p=>p[0]).pathPointLng(p=>p[1])
     .pathPointAlt(.007).pathResolution(2)
-    .pathColor(d=>d.kind==='base'?'#124b68':d.strength>.60?'#b4faff':d.strength>.30?'#56dffa':'#559dcc')
-    .pathStroke(d=>d.kind==='base'?.051:.115)
-    .pathDashLength(d=>d.kind==='base'?1:.095)
-    .pathDashGap(d=>d.kind==='base'?0:.2)
+    .pathColor(d=>d.kind==='base'?'rgba(11,108,164,0.7)':d.strength>.60?'#e7fbff':d.strength>.30?'#8de8ff':'#4abefa')
+    .pathStroke(d=>d.kind==='base'?.095:.19)
+    .pathDashLength(d=>d.kind==='base'?1:.16)
+    .pathDashGap(d=>d.kind==='base'?0:.12)
     .pathDashInitialGap(d=>d.phase)
     .pathDashAnimateTime(d=>(d.kind==='tracer'&&state.playing)?d.time:0)
     .pathTransitionDuration(0).pathsData([]);

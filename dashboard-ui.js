@@ -170,17 +170,25 @@
     else if(state.globe)state.globe.polygonsData([]);
   }
   function loadBorders(){
-    fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-      .then(r=>{if(!r.ok)throw Error("countries TopoJSON "+r.status);return r.json();})
-      .then(topology=>{
-        if(!global.topojson)throw Error("Missing topojson client");
-        state.countryFeatures=global.topojson.feature(topology,topology.objects.countries).features;
-        state.dataLoaded=true;ensureStatus();showBorders(state.borders);
+    // Use the same local GeoJSON file as the inland/ocean classifier.
+    // No remote TopoJSON or additional CDN dependency.
+    if(!global.LandGeo){
+      const el=$("globe-load-state");
+      if(el)el.textContent="三维地球 · 本地边界未加载";
+      return;
+    }
+    global.LandGeo.init()
+      .then(()=>{
+        state.countryFeatures=global.LandGeo.getFeatures();
+        state.dataLoaded=true;
+        ensureStatus();
+        showBorders(state.borders);
       })
       .catch(err=>{
-        console.warn("国家边界展示数据加载失败（地图仍可使用）",err);
-        state.dataLoaded=false;const el=$("globe-load-state");
-        if(el)el.textContent="三维地球 · 边界离线";
+        console.warn("本地地理数据未就绪",err);
+        state.dataLoaded=false;
+        const el=$("globe-load-state");
+        if(el)el.textContent="三维地球 · 边界数据暂不可用";
       });
   }
   function setCamera(pov){

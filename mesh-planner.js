@@ -2,13 +2,13 @@
 (function(global){
 'use strict';
 const D=Math.PI/180,K=111.195,$=id=>document.getElementById(id);
-const S={globe:null,canvas:null,ctx:null,hit:null,mode:null,point:null,type:null,region:null,draw:false,start:null,drag:null,step:2,width:160,cross:4,rivers:[],riverLines:[],riverCount:0,gridCount:0,nx:0,ny:0,status:'',source:null,loading:false,version:0,onchange:null};
+const S={globe:null,canvas:null,ctx:null,hit:null,mode:null,point:null,type:null,region:null,draw:false,start:null,drag:null,step:2,rangeRadiusKm:20,width:160,cross:4,rivers:[],riverLines:[],riverCount:0,gridCount:0,nx:0,ny:0,status:'',source:null,loading:false,version:0,onchange:null,presetQuads:[],presetRings:[],nativeCount:0,previewCount:0,wetAreaKm2:0,crsInfo:''};
 const fmt=n=>Number(n.toFixed(2));
 const W=r=>(r.e-r.w)*K*Math.cos((r.n+r.s)/2*D);
 const H=r=>(r.n-r.s)*K;
 const dk=(p,q)=>Math.hypot((q.lng-p.lng)*K*Math.cos((p.lat+q.lat)/2*D),(q.lat-p.lat)*K);
 const inside=(p,r)=>p.lat>=r.s&&p.lat<=r.n&&p.lng>=r.w&&p.lng<=r.e;
-function status(){const r=S.region;return {type:S.type,mode:S.mode,ready:!!r&&(S.type!=='river'||S.riverLines.length>0),loading:S.loading,source:S.source,region:r?{...r}:null,widthKm:r?fmt(W(r)):0,heightKm:r?fmt(H(r)):0,areaKm2:r?fmt(W(r)*H(r)):0,cols:S.nx,rows:S.ny,cells:S.gridCount,riverSections:S.riverCount,resolutionKm:S.step,widthM:S.width,crossCount:S.cross,status:S.status,drawing:S.draw};}
+function status(){const r=S.region;return {type:S.type,mode:S.mode,ready:!!r&&(S.type==='preset'?S.source==='native-efdc-preview':S.type!=='river'||S.riverLines.length>0),loading:S.loading,source:S.source,region:r?{...r}:null,widthKm:r?fmt(W(r)):0,heightKm:r?fmt(H(r)):0,areaKm2:r?fmt(W(r)*H(r)):0,cols:S.nx,rows:S.ny,cells:S.gridCount,riverSections:S.riverCount,resolutionKm:S.step,rangeRadiusKm:S.rangeRadiusKm,widthM:S.width,crossCount:S.cross,status:S.status,drawing:S.draw,nativeCount:S.nativeCount,previewCount:S.previewCount,wetAreaKm2:S.wetAreaKm2,crsInfo:S.crsInfo};}
 function refresh(){paint();if(S.onchange)S.onchange(status());}
 function rect(p,q){if(!p||!q)return null;const r={s:Math.min(p.lat,q.lat),n:Math.max(p.lat,q.lat),w:Math.min(p.lng,q.lng),e:Math.max(p.lng,q.lng)};return r.n-r.s>.001&&r.e-r.w>.001&&r.e-r.w<10?r:null;}
 function defaultRect(p,size){const a=size/(2*K),b=size/(2*K*Math.max(.25,Math.cos(p.lat*D)));return {s:p.lat-a,n:p.lat+a,w:p.lng-b,e:p.lng+b};}
@@ -22,9 +22,12 @@ function paint(){
  if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);canvas.style.width=w+'px';canvas.style.height=h+'px';}
  const ctx=S.ctx;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
  if(!S.region)return;
- const r=S.region;path([[r.s,r.w],[r.n,r.w],[r.n,r.e],[r.s,r.e],[r.s,r.w]],'#fba85f',2.5);
+ const r=S.region;if(S.type!=='preset')path([[r.s,r.w],[r.n,r.w],[r.n,r.e],[r.s,r.e],[r.s,r.w]],'#fba85f',2.5);
  if(!S.drag){
-   if(S.type==='river'){for(const line of S.riverLines)path(line,'rgba(67,239,244,.82)',1.0);}
+   if(S.type==='preset'){
+     for(const ring of S.presetRings)path(ring,'rgba(255,180,95,.95)',2);
+     for(const cell of S.presetQuads)path(cell.concat([cell[0]]),'rgba(76,235,249,.88)',.85);
+   }else if(S.type==='river'){for(const line of S.riverLines)path(line,'rgba(67,239,244,.82)',1.0);}
    else{
      const nx=Math.min(42,S.nx),ny=Math.min(42,S.ny);
      for(let i=0;i<=nx;i++){const x=r.w+(r.e-r.w)*i/Math.max(1,nx);path([[r.s,x],[r.n,x]],'rgba(59,230,246,.65)',.75);}
@@ -47,18 +50,29 @@ function attach(globe){
  paint();
 }
 function cancel(){S.draw=false;S.start=null;S.drag=null;if(S.hit)S.hit.style.pointerEvents='none';refresh();}
-function clear(){S.version++;cancel();S.region=null;S.source=null;S.rivers=[];S.riverLines=[];S.gridCount=0;S.riverCount=0;S.nx=0;S.ny=0;S.loading=false;}
+function clear(){S.version++;cancel();S.region=null;S.source=null;S.rivers=[];S.riverLines=[];S.gridCount=0;S.riverCount=0;S.nx=0;S.ny=0;S.loading=false;S.presetQuads=[];S.presetRings=[];S.nativeCount=0;S.previewCount=0;S.wetAreaKm2=0;S.crsInfo='';}
 function activate(p,mode){
  const old=S.point&&S.mode===mode&&p&&Math.abs(S.point.lat-p.lat)<1e-8&&Math.abs(S.point.lng-p.lng)<1e-8;
  if(old)return status();
- clear();S.point=p?{...p}:null;S.mode=mode;S.type=['fine','fast'].includes(mode)?'preset':['riverSimple','riverFast'].includes(mode)?'river':['oceanEuler','oceanLagrange'].includes(mode)?'ocean':null;
- if(S.type==='preset'&&p){S.region=defaultRect(p,18);S.step=1.5;S.source='illustrative';S.status='厂址网格仅为示意：未接入厂址实际网格文件。';calculate();}
- else if(S.type==='ocean'){S.step=2;S.status='点击“框选矩形”并在地球上拖动鼠标确定模拟区域。';}
+ clear();S.point=p?{...p}:null;S.mode=mode;S.type=['fine','fast','near2d','near3d'].includes(mode)?'preset':['riverSimple','riverFast'].includes(mode)?'river':['oceanEuler','oceanLagrange'].includes(mode)?'ocean':null;
+ if(S.type==='preset'&&p){S.loading=true;S.status='正在读取 EFDC 网格数据…';loadPreset(p.siteId||'qinshan');}
+ else if(S.type==='ocean'){S.step=2;S.status='设置模拟半径，按地点生成矩形区域；也可在地球上框选。';}
  else if(S.type==='river'){S.step=400;S.width=160;S.cross=4;S.status='框选河段，系统将尝试读取 OSM 河网中心线并生成河道导向网格预览。';}
  refresh();return status();
 }
 function drawBegin(){if(!S.hit)return;S.draw=true;S.status='在地球上按住鼠标拖动绘制矩形';S.hit.style.pointerEvents='auto';refresh();}
-function initial(){if(!S.point)return;cancel();S.region=defaultRect(S.point,S.type==='river'?12:20);S.source=S.type==='preset'?'illustrative':'generated';if(S.type==='river')getRivers();else {calculate();S.status='已生成以选点为中心的矩形模拟区域';refresh();}}
+function initial(){
+ if(!S.point||S.type==='preset')return;
+ cancel();S.region=defaultRect(S.point,2*S.rangeRadiusKm);S.source='generated';
+ if(S.type==='river')getRivers();
+ else {calculate();S.status='以当前点为中心、半径 '+S.rangeRadiusKm+' km，已生成 '+fmt(W(S.region))+' × '+fmt(H(S.region))+' km 矩形网格';refresh();}
+}
+function setRangeRadius(v){
+ const value=Number(v);
+ if(!Number.isFinite(value)||value<.5||value>200)return false;
+ S.rangeRadiusKm=value;S.status='模拟范围半径已更新，请点击“按地点生成”重新生成区域。';
+ refresh();return true;
+}
 function resolution(v){v=Number(v);if(!Number.isFinite(v)||v<.05||v>100)return;S.step=v;if(S.type!=='river')calculate();refresh();}
 function riverParams(along,width,cross){along=Number(along);width=Number(width);cross=Number(cross);if(!(along>=50&&along<=10000&&width>=10&&width<=10000&&cross>=1&&cross<=20))return;S.step=along;S.width=width;S.cross=Math.floor(cross);if(S.rivers.length)meshRiver();else refresh();}
 function crossSection(p,q,t,offset){
@@ -129,6 +143,43 @@ function focus(){
  const altitude=Math.max(.03,Math.min(.6,width/620));
  S.globe.pointOfView({lat,lng,altitude},850);
 }
+function decodePairs(b64,origin){
+ const bytes=atob(b64);
+ if(bytes.length%4)throw Error('Packed EFDC coordinate length invalid');
+ const pts=[];
+ for(let i=0;i<bytes.length;i+=4){
+   const x=bytes.charCodeAt(i)+(bytes.charCodeAt(i+1)<<8);
+   const y=bytes.charCodeAt(i+2)+(bytes.charCodeAt(i+3)<<8);
+   pts.push([origin[1]+y/1e4,origin[0]+x/1e4]);
+ }
+ return pts;
+}
+async function loadPreset(id){
+ const token=S.version;
+ if(!['qinshan','lianjiang','maoming','tianwan'].includes(id)){
+   S.loading=false;S.status='当前厂址没有网格数据';refresh();return;
+ }
+ try{
+   const res=await fetch('mesh-data/'+id+'.json?v=1');
+   if(!res.ok)throw Error('HTTP '+res.status);
+   const data=await res.json();
+   if(token!==S.version||S.type!=='preset')return;
+   const all=decodePairs(data.quads,data.origin);
+   if(all.length!==data.previewCells*4)throw Error('抽样网格数据不完整');
+   S.presetQuads=[];
+   for(let i=0;i<all.length;i+=4)S.presetQuads.push(all.slice(i,i+4));
+   S.presetRings=data.boundary.map(part=>decodePairs(part,data.origin));
+   S.nativeCount=data.nativeCells;S.previewCount=data.previewCells;S.wetAreaKm2=data.wetAreaKm2;
+   S.crsInfo='推定 3° 高斯-克吕格中央经线 '+data.cm+'°（待核实）';
+   S.region={w:data.bounds[0],s:data.bounds[1],e:data.bounds[2],n:data.bounds[3]};
+   S.gridCount=data.nativeCells;S.nx=0;S.ny=0;S.source='native-efdc-preview';S.loading=false;
+   S.status='已读取 corners.inp 派生网格，当前展示 '+data.previewCells+' / '+data.nativeCells+' 个真实单元抽样。坐标系待校核。';refresh();
+ }catch(err){
+   if(token!==S.version)return;
+   S.region=null;S.loading=false;S.source=null;
+   S.status='内置网格加载失败：'+String(err.message||err);refresh();
+ }
+}
 function onchange(fn){S.onchange=fn;}
-global.MeshPlanner={attach,activate,drawBegin,cancel,initial,resolution,riverParams,getRivers,importRiverGeoJSON,focus,clear,paint,status,onchange};
+global.MeshPlanner={attach,activate,drawBegin,cancel,initial,setRangeRadius,resolution,riverParams,getRivers,importRiverGeoJSON,focus,clear,paint,status,onchange};
 })(window);
